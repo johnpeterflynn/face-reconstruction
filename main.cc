@@ -1,3 +1,5 @@
+// ConsoleApplication1.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
+//
 
 #include "pch.h"
 #include <iostream>
@@ -160,7 +162,7 @@ int conjugateGradientSolver(Eigen::MatrixXf& J_t, Eigen::MatrixXf& J,  Eigen::Ve
 
 	*X_local = Eigen::VectorXd::Zero(X.rows());
 
-
+	Eigen::VectorXd * X_best = new Eigen::VectorXd(X.rows());
 
 	Eigen::VectorXd * R = new Eigen::VectorXd(B.rows());
 	Eigen::VectorXd * Rold = new Eigen::VectorXd(B.rows());
@@ -169,28 +171,48 @@ int conjugateGradientSolver(Eigen::MatrixXf& J_t, Eigen::MatrixXf& J,  Eigen::Ve
 
 	*R = B.cast<double>();
 
-	//Jacobi_precond_local.applyThisOnTheLeft(*R);
+	Jacobi_precond_local.applyThisOnTheLeft(*R);
 
 	*P = *R;
 	int k = 0;
+
+	double bestnorm = -1;
+
+	
+	*X_best = *X_local;
 
 	while (k < n)
 	{
 		*Rold = *R;                                         // Store previous residual
 		*AP =  ( (*J_t_local * (*J_local * *P)));
-		//Jacobi_precond_local.applyThisOnTheLeft(*AP);
+		Jacobi_precond_local.applyThisOnTheLeft(*AP);
 
 		double alpha = R->squaredNorm() / std::max((const double)(P->dot(*AP)), NEARZERO);
 		*X_local = *X_local + (alpha * *P);            // Next estimate of solution
 		*R = *R -(alpha * *AP);          // Residual 
 
-		if (R->norm() < TOLERANCE) break;             // Convergence test // Use norm?
+		double cur_res_norm = R->norm();
+
+		if (cur_res_norm < TOLERANCE)
+		{
+			*X_best= *X_local;
+
+			break;             // Convergence test // Use norm?
+		}
+
+		if ((bestnorm == -1) || (cur_res_norm < bestnorm))
+		{
+			bestnorm = cur_res_norm;
+			*X_best = *X_local;
+		}
+
+		
 
 		double beta = R->squaredNorm() / std::max((double)(Rold->squaredNorm()), NEARZERO);
 		*P = *R + (beta * *P);             // Next gradient
 		k++;
 	}
-	X = X_local->cast<float>();
+	X = X_best->cast<float>();
 	delete R, Rold, P, AP, X_local, J_local, J_t_local;
 
 	return 0;
@@ -297,11 +319,19 @@ int main()
 
 		update_params(*alpha, *delta, *delta_P);
 
-
-
 	}
 		
-	
-
 	std::cout << "Hello World!\n"; 
 }
+
+
+// Запуск программы: CTRL+F5 или меню "Отладка" > "Запуск без отладки"
+// Отладка программы: F5 или меню "Отладка" > "Запустить отладку"
+
+// Советы по началу работы 
+//   1. В окне обозревателя решений можно добавлять файлы и управлять ими.
+//   2. В окне Team Explorer можно подключиться к системе управления версиями.
+//   3. В окне "Выходные данные" можно просматривать выходные данные сборки и другие сообщения.
+//   4. В окне "Список ошибок" можно просматривать ошибки.
+//   5. Последовательно выберите пункты меню "Проект" > "Добавить новый элемент", чтобы создать файлы кода, или "Проект" > "Добавить существующий элемент", чтобы добавить в проект существующие файлы кода.
+//   6. Чтобы снова открыть этот проект позже, выберите пункты меню "Файл" > "Открыть" > "Проект" и выберите SLN-файл.
