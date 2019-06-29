@@ -9,6 +9,63 @@
 #include <Eigen/Dense>
 #include <vector>
 
+#include <OpenMesh/Core/IO/MeshIO.hh>
+#include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
+typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
+
+int surfaceNormalsTest(void)
+{
+
+	MyMesh mesh;
+	
+    mesh.request_vertex_normals();
+    //mesh.request_face_normals();
+
+    if (!OpenMesh::IO::read_mesh(mesh, "../testData/kinectdata.off")) {
+		std::cerr << "read error\n";
+        exit(1);
+	}
+  
+  OpenMesh::IO::Options opt;
+  if (!opt.check(OpenMesh::IO::Options::VertexNormal )) {
+    // we need face normals to update the vertex normals
+    mesh.request_face_normals();
+    
+    // let the mesh update the normals
+    mesh.update_normals();
+    
+    // dispose the face normals, as we don't need them anymore
+    mesh.release_face_normals();
+  }
+
+  // move all vertices one unit length along it's normal direction
+  for (MyMesh::VertexIter v_it = mesh.vertices_begin();
+       v_it != mesh.vertices_end(); ++v_it)
+  {
+    std::cout << "Vertex #" << *v_it << ": " << mesh.point( *v_it );
+    mesh.set_point( *v_it, mesh.point(*v_it) + 0.05 * mesh.normal(*v_it) );
+    std::cout << " moved to " << mesh.point( *v_it ) << std::endl;
+  }
+  // don't need the normals anymore? Remove them!
+
+  mesh.release_vertex_normals();
+
+  // just check if it really works
+  if (mesh.has_vertex_normals())
+  {
+    std::cerr << "Ouch! ERROR! Shouldn't have any vertex normals anymore!\n";
+    return 1;
+  }
+
+  if (!OpenMesh::IO::write_mesh(mesh, "out.off")) 
+  {
+    std::cerr << "write error\n";
+    exit(1);
+  }
+
+  return 0;
+}
+
 void LoadVector(const std::string &filename, float *res, unsigned int length)
 {
 	std::ifstream in(filename, std::ifstream::in | std::ifstream::binary);
@@ -233,6 +290,7 @@ int update_params(Eigen::VectorXf& alpha, Eigen::VectorXf& delta, Eigen::VectorX
 }
 
 int cg_solver_helper(Eigen::MatrixXf& A, Eigen::VectorXf& B, Eigen::VectorXf& X);
+
 
 int main()
 {
