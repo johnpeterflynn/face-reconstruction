@@ -1,0 +1,7 @@
+VULKAN_ROOT_LOCATON="$HOME/Desktop/TUM/Courses/ss19/3d_scanning_and_motion_capture/" \
+VULKAN_SDK_VERSION="1.1.108.0" \
+VULKAN_SDK="$VULKAN_ROOT_LOCATON/vulkansdk-macos-$VULKAN_SDK_VERSION/macOS" \
+VK_ICD_FILENAMES="/Users/ardakeskiner/Desktop/TUM/Courses/ss19/3d_scanning_and_motion_capture/vulkansdk-macos-1.1.108.0/macOS/etc/vulkan/icd.d/MoltenVK_icd.json" \
+VK_LAYER_PATH="/Users/ardakeskiner/Desktop/TUM/Courses/ss19/3d_scanning_and_motion_capture/vulkansdk-macos-1.1.108.0/macOS/etc/vulkan/explicit_layer.d" \
+LD_LIBRARY_PATH="/Users/ardakeskiner/Desktop/TUM/Courses/ss19/3d_scanning_and_motion_capture/vulkansdk-macos-1.1.108.0/macOS/lib" \
+cmake .. && make && ./vulkan_rendering
