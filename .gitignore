@@ -1,1 +1,5 @@
 vulkan_rendering/cmake_build/
+build
+models
+testData
+CMakeLists.txt.user
