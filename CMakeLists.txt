@@ -15,3 +15,4 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 #include_directories(${CERES_INCLUDE_DIRS})
 
 add_executable(${PROJECT_NAME} "main.cc")
+target_link_libraries(${PROJECT_NAME} OpenMeshCore)
