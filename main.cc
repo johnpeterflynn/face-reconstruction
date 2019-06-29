@@ -60,11 +60,11 @@ typedef struct float4 {
 	float z;
 	float w;
 } float4;
-constexpr const char* filenameBasisShape = "C:/scanning/ShapeBasis.matrix";
-constexpr const char* filenameBasisExpression = "C:/scanning/ExpressionBasis.matrix";
-constexpr const char* filenameStdDevShape = "C:/scanning/StandardDeviationShape.vec";
+constexpr const char* filenameBasisShape = "../models/ShapeBasis.matrix";
+constexpr const char* filenameBasisExpression = "../models/ExpressionBasis.matrix";
+constexpr const char* filenameStdDevShape = "../models/StandardDeviationShape.vec";
 
-constexpr const char* filenameStdDevExpression = "C:/scanning/StandardDeviationExpression.vec";
+constexpr const char* filenameStdDevExpression = "../models/StandardDeviationExpression.vec";
 
 int convert_basis(Eigen::MatrixXf& basis, int nVertices, int NumberOfEigenvectors, float4* basisCPU)
 {
