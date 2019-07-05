@@ -12,6 +12,7 @@
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
+//typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyPolyMesh;
 
 int surfaceNormalsTest(void)
 {
@@ -43,7 +44,7 @@ int surfaceNormalsTest(void)
        v_it != mesh.vertices_end(); ++v_it)
   {
     std::cout << "Vertex #" << *v_it << ": " << mesh.point( *v_it );
-    mesh.set_point( *v_it, mesh.point(*v_it) + 0.05 * mesh.normal(*v_it) );
+    mesh.set_point( *v_it, mesh.point(*v_it) + 0.01 * mesh.normal(*v_it) );
     std::cout << " moved to " << mesh.point( *v_it ) << std::endl;
   }
   // don't need the normals anymore? Remove them!
@@ -64,6 +65,81 @@ int surfaceNormalsTest(void)
   }
 
   return 0;
+}
+
+void write_model(Eigen::VectorXf& vertices) {
+    //MyMesh mesh;
+
+    /*
+    Eigen::Matrix3f A = Eigen::Map<Eigen::Matrix<float, 3, 3, RowMajor>>(m->data());
+
+    std::vector<MyMesh::VertexHandle>  face_vhandles;
+
+    face_vhandles.clear();
+    face_vhandles.push_back(vhandle[0]);
+    face_vhandles.push_back(vhandle[1]);
+    face_vhandles.push_back(vhandle[2]);
+    face_vhandles.push_back(vhandle[3]);
+    mesh.add_face(face_vhandles);
+
+    */
+
+    MyMesh avg_mesh;
+
+
+    if (!OpenMesh::IO::read_mesh(avg_mesh, "../models/averageMesh.off")) {
+        std::cerr << "read error\n";
+    }
+
+    avg_mesh.request_vertex_normals();
+
+  OpenMesh::IO::Options opt;
+  if (!opt.check(OpenMesh::IO::Options::VertexNormal )) {
+    // we need face normals to update the vertex normals
+    avg_mesh.request_face_normals();
+
+    // let the mesh update the normals
+    avg_mesh.update_normals();
+
+    // dispose the face normals, as we don't need them anymore
+    avg_mesh.release_face_normals();
+  }
+
+
+/*
+    for (size_t i = 0; i < vertices.size(); i += 3) {
+        mesh.add_vertex(MyMesh::Point(vertices(i), vertices(i+1),  vertices(i+2)));
+    }
+*/
+    std::cout << "Average mesh vertices:" << avg_mesh.n_vertices() << "\n";
+    std::cout << "Generated vertices:" << vertices.size() / 3.0 << "\n";
+
+    size_t i = 0;
+    for (MyMesh::VertexIter v_it = avg_mesh.vertices_begin();
+         v_it != avg_mesh.vertices_end(); ++v_it)
+    {
+      std::cout << "Avg mesh point: " << avg_mesh.point(*v_it) << "\n";
+      std::cout << "Gen mesh point: " << MyMesh::Point(vertices(i), vertices(i+1),  vertices(i+2)) << "\n";
+
+      //std::cout << "Vertex #" << *v_it << ": " << mesh.point( *v_it );
+      avg_mesh.set_point( *v_it, avg_mesh.point(*v_it) / 1000000.0 + MyMesh::Point(vertices(i), vertices(i+1),  vertices(i+2)));// 0.05 * mesh.normal(*v_it) );
+      //std::cout << " moved to " << mesh.point( *v_it ) << std::endl;
+
+      i += 3;
+    }
+
+    // write mesh to output.obj
+    try
+    {
+      if ( !OpenMesh::IO::write_mesh(avg_mesh, "generatedface.off") )
+      {
+        std::cerr << "Cannot write mesh to file 'output.off'" << std::endl;
+      }
+    }
+    catch( std::exception& x )
+    {
+      std::cerr << x.what() << std::endl;
+    }
 }
 
 void LoadVector(const std::string &filename, float *res, unsigned int length)
@@ -123,19 +199,20 @@ constexpr const char* filenameStdDevShape = "../models/StandardDeviationShape.ve
 
 constexpr const char* filenameStdDevExpression = "../models/StandardDeviationExpression.vec";
 
+
 int convert_basis(Eigen::MatrixXf& basis, int nVertices, int NumberOfEigenvectors, float4* basisCPU)
 {
-	for (int cc1 = 0; cc1 < nVertices; cc1++)
-	{
-			for (int cc3 = 0; cc3 < NumberOfEigenvectors; cc3++)
-			{
-				basis(cc1 * 3 + 0,cc3) = basisCPU[cc1*NumberOfEigenvectors + cc3].x;
-				basis(cc1 * 3 + 1,cc3) = basisCPU[cc1*NumberOfEigenvectors + cc3].y;
-				basis(cc1 * 3 + 2,cc3) = basisCPU[cc1*NumberOfEigenvectors + cc3].z;
-			}
-	}
-	return 0;
+    for(int i = 0; i < NumberOfEigenvectors; i++) {
+        for (int j = 0; j < nVertices; j++) {
+            basis(j * 3 + 0, i) = basisCPU[i * nVertices + j].x;
+            basis(j * 3 + 1, i) = basisCPU[i * nVertices + j].y;
+            basis(j * 3 + 2, i) = basisCPU[i * nVertices + j].z;
+        }
+    }
+
+    return 0;
 }
+
 int forward_pass(Eigen::MatrixXf& shape_basis, Eigen::MatrixXf& expr_basis, Eigen::VectorXf& alpha, Eigen::VectorXf& delta, Eigen::VectorXf& vertices_out)
 {
 	vertices_out = shape_basis * alpha + expr_basis * delta;
@@ -308,19 +385,31 @@ int main()
 	std::cout << "converting the basis: " << std::endl;
 
 	convert_basis(*shapeBasisEigen, nVertices, NumberOfEigenvectors, shapeBasisCPU);
-	convert_basis(*exprBasisEigen, nVertices, NumberOfExpressions, shapeBasisCPU);
+    convert_basis(*exprBasisEigen, nVertices, NumberOfExpressions, expressionBasisCPU);//shapeBasisCPU); // Q: Should be expressionBasisCPU?
 
 	Eigen::VectorXf * alpha = new Eigen::VectorXf(NumberOfEigenvectors);
 	Eigen::VectorXf * delta = new Eigen::VectorXf(NumberOfExpressions);
 
-	*alpha = Eigen::VectorXf::Random(NumberOfEigenvectors)/10;
-	*delta= Eigen::VectorXf::Random(NumberOfExpressions)/10;
+    *alpha = Eigen::VectorXf::Zero(NumberOfEigenvectors);
+    *delta = Eigen::VectorXf::Zero(NumberOfExpressions);
+
+    (*alpha)(0) = -5;
+    (*alpha)(2) = 0;
+
+    //*alpha = 2 * Eigen::VectorXf::Random(NumberOfEigenvectors);
+    //*delta= 2 * Eigen::VectorXf::Random(NumberOfExpressions);
 
 	Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
 	std::cout << "forward pass: " << std::endl;
 
 	forward_pass(*shapeBasisEigen, *exprBasisEigen, *alpha, *delta, *vertices_out);
 	
+    //std::cout << "Surface normals test\n";
+    //surfaceNormalsTest();
+    std::cout << "Writing generated face\n";
+    write_model(*vertices_out);
+    std::cout << "Finished writing generated face\n";
+
  	LoadVector(filenameStdDevShape, shapeDevCPU, NumberOfEigenvectors);
 	LoadVector(filenameStdDevExpression, expressionDevCPU, NumberOfExpressions);
 
