@@ -21,6 +21,8 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 //typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyPolyMesh;
 #include <OpenMesh/Tools/Utils/getopt.h>
 
+#include "facemodel.h"
+
 int surfaceNormalsTest(void)
 {
 
@@ -105,103 +107,6 @@ void projectionTest(MyMesh& mesh) {
     }
 
     cv::imwrite( "./images/test_image.jpg", M);
-}
-
-void write_model(Eigen::VectorXf& vertices) {
-    //MyMesh mesh;
-
-    /*
-    Eigen::Matrix3f A = Eigen::Map<Eigen::Matrix<float, 3, 3, RowMajor>>(m->data());
-
-    std::vector<MyMesh::VertexHandle>  face_vhandles;
-
-    face_vhandles.clear();
-    face_vhandles.push_back(vhandle[0]);
-    face_vhandles.push_back(vhandle[1]);
-    face_vhandles.push_back(vhandle[2]);
-    face_vhandles.push_back(vhandle[3]);
-    mesh.add_face(face_vhandles);
-
-    */
-
-    MyMesh avg_mesh;
-    OpenMesh::IO::Options ropt, wopt;
-
-    ropt += OpenMesh::IO::Options::VertexColor + OpenMesh::IO::Options::VertexNormal;
-    wopt += OpenMesh::IO::Options::VertexColor + OpenMesh::IO::Options::VertexNormal;
-
-    avg_mesh.request_vertex_colors();
-    avg_mesh.request_vertex_normals();
-
-    // assure we have vertex normals
-    if (!avg_mesh.has_vertex_normals())
-    {
-      std::cerr << "ERROR: Standard vertex property 'Normals' not available!\n";
-      return;
-    }
-
-    // assure we have vertex normals
-    if (!avg_mesh.has_vertex_colors())
-    {
-      std::cerr << "ERROR: Standard vertex property 'Colors' not available!\n";
-      return;
-    }
-
-    if (!OpenMesh::IO::read_mesh(avg_mesh, "../models/averageMesh.off", ropt)) {
-        std::cerr << "read error\n";
-    }
-
-  projectionTest(avg_mesh);
-
-  OpenMesh::IO::Options opt;
-  if (!opt.check(OpenMesh::IO::Options::VertexNormal )) {
-    // we need face normals to update the vertex normals
-    avg_mesh.request_face_normals();
-
-    // let the mesh update the normals
-    avg_mesh.update_normals();
-
-    // dispose the face normals, as we don't need them anymore
-    avg_mesh.release_face_normals();
-  }
-
-  std::cout << "Attribute vertex color: " << avg_mesh.has_vertex_colors() << "\n";
-
-
-/*
-    for (size_t i = 0; i < vertices.size(); i += 3) {
-        mesh.add_vertex(MyMesh::Point(vertices(i), vertices(i+1),  vertices(i+2)));
-    }
-*/
-    std::cout << "Average mesh vertices:" << avg_mesh.n_vertices() << "\n";
-    std::cout << "Generated vertices:" << vertices.size() / 3.0 << "\n";
-
-    size_t i = 0;
-    for (MyMesh::VertexIter v_it = avg_mesh.vertices_begin();
-         v_it != avg_mesh.vertices_end(); ++v_it)
-    {
-      //std::cout << "Avg mesh point: " << avg_mesh.point(*v_it) << "\n";
-      //std::cout << "Gen mesh point: " << MyMesh::Point(vertices(i), vertices(i+1),  vertices(i+2)) << "\n";
-
-      //std::cout << "Vertex #" << *v_it << ": " << mesh.point( *v_it );
-      avg_mesh.set_point( *v_it, avg_mesh.point(*v_it) / 1000000.0 + MyMesh::Point(vertices(i), vertices(i+1),  vertices(i+2)));// 0.05 * mesh.normal(*v_it) );
-      //std::cout << " moved to " << mesh.point( *v_it ) << std::endl;
-
-      i += 3;
-    }
-
-    // write mesh to output.obj
-    try
-    {
-      if ( !OpenMesh::IO::write_mesh(avg_mesh, "generatedface.off", wopt) )
-      {
-        std::cerr << "Cannot write mesh to file 'generatedface.off'" << std::endl;
-      }
-    }
-    catch( std::exception& x )
-    {
-      std::cerr << x.what() << std::endl;
-    }
 }
 
 void LoadVector(const std::string &filename, float *res, unsigned int length)
@@ -433,6 +338,8 @@ int cg_solver_helper(Eigen::MatrixXf& A, Eigen::VectorXf& B, Eigen::VectorXf& X)
 
 int main()
 {
+    FaceModel face_model;
+
 	auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
 	auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];
 	LoadVector(filenameBasisShape, (float*)shapeBasisCPU, 4 * nVertices * NumberOfEigenvectors);
@@ -452,27 +359,17 @@ int main()
 	Eigen::VectorXf * alpha = new Eigen::VectorXf(NumberOfEigenvectors);
 	Eigen::VectorXf * delta = new Eigen::VectorXf(NumberOfExpressions);
 
-    *alpha = Eigen::VectorXf::Zero(NumberOfEigenvectors);
-    *delta = Eigen::VectorXf::Zero(NumberOfExpressions);
-
-    //*alpha = 2 * Eigen::VectorXf::Random(NumberOfEigenvectors);
-    //*delta= 2 * Eigen::VectorXf::Random(NumberOfExpressions);
+    *alpha = Eigen::VectorXf::Random(NumberOfEigenvectors) / 10;
+    *delta= Eigen::VectorXf::Random(NumberOfExpressions) / 10;
 
 	Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
 	std::cout << "forward pass: " << std::endl;
 
 	forward_pass(*shapeBasisEigen, *exprBasisEigen, *alpha, *delta, *vertices_out);
-	
-    //std::cout << "Surface normals test\n";
-    //surfaceNormalsTest();
-    std::cout << "Writing generated face\n";
-    write_model(*vertices_out);
-    std::cout << "Finished writing generated face\n";
 
  	LoadVector(filenameStdDevShape, shapeDevCPU, NumberOfEigenvectors);
 	LoadVector(filenameStdDevExpression, expressionDevCPU, NumberOfExpressions);
 
-	
 
 	constexpr int nResidualVerts = 1;
 	constexpr int nResidualsPerVert = 3;
@@ -526,7 +423,10 @@ int main()
 		update_params(*alpha, *delta, *delta_P);
 
 	}
-		
+
+    std::cout << "Writing synthesized model to file\n";
+    face_model.writeSynthesizedModel(*vertices_out);
+
 	std::cout << "Hello World!\n"; 
 }
 
