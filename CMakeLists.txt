@@ -6,6 +6,8 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 add_definitions(-DPROJECT_DIR="${PROJECT_SOURCE_DIR}")
 
+include_directories(include)
+
 # Eigen
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
@@ -25,5 +27,9 @@ else()
   message(STATUS "Found OpenCV 2 headers in: ${OpenCV_INCLUDE_DIRS}")
 endif()
 
-add_executable(${PROJECT_NAME} "main.cc")
+set(SOURCES
+    src/main.cc
+    src/facemodel.cpp)
+
+add_executable(${PROJECT_NAME} ${SOURCES})
 target_link_libraries(${PROJECT_NAME} OpenMeshCore ${OpenCV_LIBS})
