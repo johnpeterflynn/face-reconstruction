@@ -13,6 +13,7 @@
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 //typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyPolyMesh;
+#include <OpenMesh/Tools/Utils/getopt.h>
 
 int surfaceNormalsTest(void)
 {
@@ -20,6 +21,7 @@ int surfaceNormalsTest(void)
 	MyMesh mesh;
 	
     mesh.request_vertex_normals();
+
     //mesh.request_face_normals();
 
     if (!OpenMesh::IO::read_mesh(mesh, "../testData/kinectdata.off")) {
@@ -85,13 +87,31 @@ void write_model(Eigen::VectorXf& vertices) {
     */
 
     MyMesh avg_mesh;
+    OpenMesh::IO::Options ropt, wopt;
 
+    ropt += OpenMesh::IO::Options::VertexColor + OpenMesh::IO::Options::VertexNormal;
+    wopt += OpenMesh::IO::Options::VertexColor + OpenMesh::IO::Options::VertexNormal;
 
-    if (!OpenMesh::IO::read_mesh(avg_mesh, "../models/averageMesh.off")) {
-        std::cerr << "read error\n";
+    avg_mesh.request_vertex_colors();
+    avg_mesh.request_vertex_normals();
+
+    // assure we have vertex normals
+    if (!avg_mesh.has_vertex_normals())
+    {
+      std::cerr << "ERROR: Standard vertex property 'Normals' not available!\n";
+      return;
     }
 
-    avg_mesh.request_vertex_normals();
+    // assure we have vertex normals
+    if (!avg_mesh.has_vertex_colors())
+    {
+      std::cerr << "ERROR: Standard vertex property 'Colors' not available!\n";
+      return;
+    }
+
+    if (!OpenMesh::IO::read_mesh(avg_mesh, "../models/averageMesh.off", ropt)) {
+        std::cerr << "read error\n";
+    }
 
   OpenMesh::IO::Options opt;
   if (!opt.check(OpenMesh::IO::Options::VertexNormal )) {
@@ -104,6 +124,8 @@ void write_model(Eigen::VectorXf& vertices) {
     // dispose the face normals, as we don't need them anymore
     avg_mesh.release_face_normals();
   }
+
+  std::cout << "Attribute vertex color: " << avg_mesh.has_vertex_colors() << "\n";
 
 
 /*
@@ -118,8 +140,8 @@ void write_model(Eigen::VectorXf& vertices) {
     for (MyMesh::VertexIter v_it = avg_mesh.vertices_begin();
          v_it != avg_mesh.vertices_end(); ++v_it)
     {
-      std::cout << "Avg mesh point: " << avg_mesh.point(*v_it) << "\n";
-      std::cout << "Gen mesh point: " << MyMesh::Point(vertices(i), vertices(i+1),  vertices(i+2)) << "\n";
+      //std::cout << "Avg mesh point: " << avg_mesh.point(*v_it) << "\n";
+      //std::cout << "Gen mesh point: " << MyMesh::Point(vertices(i), vertices(i+1),  vertices(i+2)) << "\n";
 
       //std::cout << "Vertex #" << *v_it << ": " << mesh.point( *v_it );
       avg_mesh.set_point( *v_it, avg_mesh.point(*v_it) / 1000000.0 + MyMesh::Point(vertices(i), vertices(i+1),  vertices(i+2)));// 0.05 * mesh.normal(*v_it) );
@@ -131,9 +153,9 @@ void write_model(Eigen::VectorXf& vertices) {
     // write mesh to output.obj
     try
     {
-      if ( !OpenMesh::IO::write_mesh(avg_mesh, "generatedface.off") )
+      if ( !OpenMesh::IO::write_mesh(avg_mesh, "generatedface.off", wopt) )
       {
-        std::cerr << "Cannot write mesh to file 'output.off'" << std::endl;
+        std::cerr << "Cannot write mesh to file 'generatedface.off'" << std::endl;
       }
     }
     catch( std::exception& x )
@@ -392,9 +414,6 @@ int main()
 
     *alpha = Eigen::VectorXf::Zero(NumberOfEigenvectors);
     *delta = Eigen::VectorXf::Zero(NumberOfExpressions);
-
-    (*alpha)(0) = -5;
-    (*alpha)(2) = 0;
 
     //*alpha = 2 * Eigen::VectorXf::Random(NumberOfEigenvectors);
     //*delta= 2 * Eigen::VectorXf::Random(NumberOfExpressions);
