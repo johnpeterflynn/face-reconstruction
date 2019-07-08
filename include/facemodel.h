@@ -1,22 +1,23 @@
 #ifndef FACEMODEL_H
 #define FACEMODEL_H
 
+#include <Eigen/Dense>
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 
-static constexpr float SCALE_AVG_MESH = 1 / 1000000.0;
+static constexpr float SCALE_AVG_MESH = 1.0 / 1000000.0;
 
 class FaceModel
 {
 public:
+    typedef OpenMesh::TriMesh_ArrayKernelT<> FaceMesh;
+
     FaceModel();
 
     int loadAverageMesh();
+    int writeSynthesizedModel(const Eigen::VectorXf& diff_vertices);
 
 private:
-    typedef OpenMesh::TriMesh_ArrayKernelT<>  AvgMesh;
-
-private:
-    AvgMesh m_avg_mesh;
+    FaceMesh m_avg_mesh;
 
 };
 
