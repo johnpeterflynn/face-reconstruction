@@ -76,9 +76,34 @@ int surfaceNormalsTest(void)
 }
 
 void projectionTest(MyMesh& mesh) {
+    cv::Mat M(480, 640, CV_8UC3, cv::Scalar(0, 0, 0));
 
+    for (MyMesh::VertexIter v_it = mesh.vertices_begin();
+         v_it != mesh.vertices_end(); ++v_it)
+    {
+      MyMesh::Point p3 = mesh.point(*v_it) * 2000;
 
-    cv::Mat M(480, 640, CV_8UC3, cv::Scalar(0,255, 0));
+      // 3D-2D projection
+
+      float depth = 1.0;//200 + p3[2];
+      Eigen::Vector3f v3(p3[0], p3[1], depth);
+
+      float f = 10; // focal length
+      float ox = 640 / 2;
+      float oy = 480 / 2;
+      Eigen::Matrix<float, 2, 3> Intrinsics;
+      Intrinsics << f, 0, ox,
+                    0, f, oy;
+      Eigen::Matrix<float, 2, 3> Pi = Intrinsics / depth;
+
+      Eigen::Vector2f v2 = Pi * v3;
+
+      std::cout << "depth: " << depth << std::endl;
+      if (0 <= v2(0) && v2(0) < 640 && 0 <= v2(1) && v2(1) < 480) {
+        M.at<cv::Vec3b>(cv::Point(int(v2(0)),int(v2(1)))) = cv::Vec3b(0, 0, 255);
+      }
+    }
+
     cv::imwrite( "./images/test_image.jpg", M);
 }
 
