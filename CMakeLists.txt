@@ -14,5 +14,16 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 #find_package(Ceres REQUIRED)
 #include_directories(${CERES_INCLUDE_DIRS})
 
+find_package( OpenCV 3 QUIET COMPONENTS core features2d)
+if (OpenCV_FOUND)
+  message(STATUS "Found OpenCV 3 headers in: ${OpenCV_INCLUDE_DIRS}")
+else()
+  message(STATUS "Didn't find OpenCV 3, looking for 2")
+  # HINTS needed for macos homebrew (install with `brew install opencv@2`)
+  find_package( OpenCV 2 REQUIRED COMPONENTS core features2d
+      HINTS /usr/local/opt/opencv@2 )
+  message(STATUS "Found OpenCV 2 headers in: ${OpenCV_INCLUDE_DIRS}")
+endif()
+
 add_executable(${PROJECT_NAME} "main.cc")
-target_link_libraries(${PROJECT_NAME} OpenMeshCore)
+target_link_libraries(${PROJECT_NAME} OpenMeshCore ${OpenCV_LIBS})

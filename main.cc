@@ -9,6 +9,12 @@
 #include <Eigen/Dense>
 #include <vector>
 
+//#include <opencv2/core/core.hpp>
+//#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <iostream>
+
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
@@ -69,6 +75,13 @@ int surfaceNormalsTest(void)
   return 0;
 }
 
+void projectionTest(MyMesh& mesh) {
+
+
+    cv::Mat M(480, 640, CV_8UC3, cv::Scalar(0,255, 0));
+    cv::imwrite( "./images/test_image.jpg", M);
+}
+
 void write_model(Eigen::VectorXf& vertices) {
     //MyMesh mesh;
 
@@ -112,6 +125,8 @@ void write_model(Eigen::VectorXf& vertices) {
     if (!OpenMesh::IO::read_mesh(avg_mesh, "../models/averageMesh.off", ropt)) {
         std::cerr << "read error\n";
     }
+
+  projectionTest(avg_mesh);
 
   OpenMesh::IO::Options opt;
   if (!opt.check(OpenMesh::IO::Options::VertexNormal )) {
