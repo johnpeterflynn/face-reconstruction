@@ -78,7 +78,10 @@ int surfaceNormalsTest(void)
 }
 
 void projectionTest(MyMesh& mesh) {
-    cv::Mat M(480, 640, CV_8UC3, cv::Scalar(0, 0, 0));
+    const unsigned int IMG_WIDTH = 640;
+    const unsigned int IMG_HEIGHT = 480;
+
+    cv::Mat M(IMG_HEIGHT, IMG_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
 
     for (MyMesh::VertexIter v_it = mesh.vertices_begin();
          v_it != mesh.vertices_end(); ++v_it)
@@ -87,12 +90,12 @@ void projectionTest(MyMesh& mesh) {
 
       // 3D-2D projection
 
-      float depth = 1.0;//200 + p3[2];
+      float depth = 1;//p3[2];
       Eigen::Vector3f v3(p3[0], p3[1], depth);
 
-      float f = 10; // focal length
-      float ox = 640 / 2;
-      float oy = 480 / 2;
+      float f = 1; // focal length
+      float ox = IMG_WIDTH / 2.0;
+      float oy = IMG_HEIGHT / 2.0;
       Eigen::Matrix<float, 2, 3> Intrinsics;
       Intrinsics << f, 0, ox,
                     0, f, oy;
@@ -101,8 +104,8 @@ void projectionTest(MyMesh& mesh) {
       Eigen::Vector2f v2 = Pi * v3;
 
       std::cout << "depth: " << depth << std::endl;
-      if (0 <= v2(0) && v2(0) < 640 && 0 <= v2(1) && v2(1) < 480) {
-        M.at<cv::Vec3b>(cv::Point(int(v2(0)),int(v2(1)))) = cv::Vec3b(0, 0, 255);
+      if (0 <= v2(0) && v2(0) < IMG_WIDTH && 0 <= v2(1) && v2(1) < IMG_HEIGHT) {
+        M.at<cv::Vec3b>(cv::Point(round(v2(0)),round(v2(1)))) = cv::Vec3b(0, 0, 255);
       }
     }
 
@@ -339,6 +342,8 @@ int cg_solver_helper(Eigen::MatrixXf& A, Eigen::VectorXf& B, Eigen::VectorXf& X)
 int main()
 {
     FaceModel face_model;
+
+    projectionTest(face_model.m_avg_mesh);
 
 	auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
 	auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];

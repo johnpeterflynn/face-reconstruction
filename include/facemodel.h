@@ -16,7 +16,7 @@ public:
     int loadAverageMesh();
     int writeSynthesizedModel(const Eigen::VectorXf& diff_vertices);
 
-private:
+public:
     FaceMesh m_avg_mesh;
 
 };
