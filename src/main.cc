@@ -77,7 +77,33 @@ int surfaceNormalsTest(void)
   return 0;
 }
 
-void projectionTest(MyMesh& mesh) {
+constexpr const char* FILENAME_SCANNED_MESH = "../testData/kinectdata.off";
+
+int loadScannedMesh(MyMesh& scanned_mesh) {
+    OpenMesh::IO::Options ropt;
+
+    // Set input options
+    ropt += OpenMesh::IO::Options::VertexColor;
+
+    scanned_mesh.request_vertex_colors();
+
+    // assure we have vertex normals
+    if (!scanned_mesh.has_vertex_colors())
+    {
+      std::cerr << "ERROR: Standard vertex property 'Colors' not available for average mesh!\n";
+      return 1;
+    }
+
+    if (!OpenMesh::IO::read_mesh(scanned_mesh, FILENAME_SCANNED_MESH, ropt)) {
+        std::cerr << "ERROR: Could not load " << FILENAME_SCANNED_MESH << "\n";
+        return 1;
+    }
+
+    return 0;
+}
+
+
+void projectionTest(MyMesh& mesh, std::string s) {
     const unsigned int IMG_WIDTH = 640;
     const unsigned int IMG_HEIGHT = 480;
 
@@ -86,7 +112,7 @@ void projectionTest(MyMesh& mesh) {
     for (MyMesh::VertexIter v_it = mesh.vertices_begin();
          v_it != mesh.vertices_end(); ++v_it)
     {
-      MyMesh::Point p3 = mesh.point(*v_it) * 2000;
+      MyMesh::Point p3 = mesh.point(*v_it) * 2000.0;
 
       // 3D-2D projection
 
@@ -103,13 +129,12 @@ void projectionTest(MyMesh& mesh) {
 
       Eigen::Vector2f v2 = Pi * v3;
 
-      std::cout << "depth: " << depth << std::endl;
       if (0 <= v2(0) && v2(0) < IMG_WIDTH && 0 <= v2(1) && v2(1) < IMG_HEIGHT) {
         M.at<cv::Vec3b>(cv::Point(round(v2(0)),round(v2(1)))) = cv::Vec3b(0, 0, 255);
       }
     }
 
-    cv::imwrite( "./images/test_image.jpg", M);
+    cv::imwrite( "./images/" + s + ".jpg", M);
 }
 
 void LoadVector(const std::string &filename, float *res, unsigned int length)
@@ -338,12 +363,14 @@ int update_params(Eigen::VectorXf& alpha, Eigen::VectorXf& delta, Eigen::VectorX
 
 int cg_solver_helper(Eigen::MatrixXf& A, Eigen::VectorXf& B, Eigen::VectorXf& X);
 
-
 int main()
 {
     FaceModel face_model;
+    MyMesh scanned_mesh;
 
-    projectionTest(face_model.m_avg_mesh);
+    loadScannedMesh(scanned_mesh);
+    projectionTest(face_model.m_avg_mesh, "modeltest");
+    projectionTest(scanned_mesh, "scantest");
 
 	auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
 	auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];
