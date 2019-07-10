@@ -180,17 +180,13 @@ void writeMatrixToImg(const Eigen::MatrixXf& matrix, cv::Mat& img,
 }
 
 void meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) {
-    int index = 0;
-
     for (MyMesh::VertexIter v_it = mesh.vertices_begin();
          v_it != mesh.vertices_end(); ++v_it)
     {
       MyMesh::Point p3 = mesh.point(*v_it);
       Eigen::Vector3f v3(p3[0], p3[1], p3[2]);
 
-      M_out.col(index) = v3;
-
-      index++;
+      M_out.col(v_it->idx()) = v3;
     }
 }
 
