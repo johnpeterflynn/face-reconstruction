@@ -79,21 +79,18 @@ int surfaceNormalsTest(void)
   return 0;
 }
 
-int calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
-                  Eigen::VectorXi& indices)
+void calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
+                  Eigen::MatrixXi& indices)
 {
     const int K = indices.rows();
 
-    // Reset indices
-    indices.setZero();
-
     Nabo::NNSearchF* nns = Nabo::NNSearchF::createKDTreeLinearHeap(M);
     //Eigen::VectorXi indices(K);
-    Eigen::VectorXf dists2(K);
-    nns->knn(q, indices, dists2, K);
+    Eigen::MatrixXf dists2(K, q.cols());
+    nns->knn(q, indices, dists2, K);//,  0.1);//, NNSearchF::SORT_RESULTS);
     delete nns;
 
-    return indices(0);
+    return;
 }
 
 constexpr const char* FILENAME_SCANNED_MESH = "../testData/kinectdata.off";
@@ -182,45 +179,49 @@ void writeMatrixToImg(const Eigen::MatrixXf& matrix, cv::Mat& img,
     //}
 }
 
+void meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) {
+    int index = 0;
+
+    for (MyMesh::VertexIter v_it = mesh.vertices_begin();
+         v_it != mesh.vertices_end(); ++v_it)
+    {
+      MyMesh::Point p3 = mesh.point(*v_it);
+      Eigen::Vector3f v3(p3[0], p3[1], p3[2]);
+
+      M_out.col(index) = v3;
+
+      index++;
+    }
+}
+
 int knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh) {
-    Eigen::MatrixXf FM_proj(2, face_model.m_avg_mesh.n_vertices());
-    Eigen::MatrixXf SM_proj(2, scanned_mesh.n_vertices());
+    Eigen::MatrixXf FM(3, face_model.m_avg_mesh.n_vertices());
+    Eigen::MatrixXf SM(3, scanned_mesh.n_vertices());
 
-    projectionTest(face_model.m_avg_mesh, "modeltest", 12539, FM_proj);
-    projectionTest(scanned_mesh, "scantest", 8319, SM_proj);
+    meshToMatrix(face_model.m_avg_mesh, FM);
+    meshToMatrix(scanned_mesh, SM);
 
-    std::cout << "Num FM rows, cols: " << FM_proj.rows() << ", " << FM_proj.cols() << "\n";
-    std::cout << "Num SM rows, cols: " << FM_proj.rows() << ", " << FM_proj.cols() << "\n";
+    std::cout << "Num FM rows, cols: " << FM.rows() << ", " << FM.cols() << "\n";
+    std::cout << "Num SM rows, cols: " << SM.rows() << ", " << SM.cols() << "\n";
 
     // Sample the matrices to see if they look okay.
-    std::cout << FM_proj.block<2,5>(0,100) << "\n";
+    std::cout << "SM first 10 values\n";
+    std::cout << SM.block<3,10>(0,0) << "\n";
 
     std::cout << "Starting KNN\n";
 
     const int K = 1;
 
-    // Indices for  for each column vector in FN_proj
-    Eigen::MatrixXi indices(K, FM_proj.cols());
+    // Indices for  for each column vector in FN
+    Eigen::MatrixXi indices;
+    indices.resize(K, FM.cols());
+
+    calculate_knn(SM, FM, indices);
+
+    std::cout << "Finished KNN\n";
 
 
-    std::cout << "Vector " << c << "/" << FM_proj.cols() << "\n";
-    // Index for each of the K nearest neighbors
-    Eigen::VectorXi indices(K);
-
-    //std::cout << "FM_prol column 10: " << FM_proj.col(10) << "\n";
-
-    calculate_knn(SM_proj, FM_proj.col(10), indices);
-
-    all_indices(c) = indices(0);
-
-    /*
-    for (int i = 0; i < K; i++) {
-        int index = indices(i);
-        std::cout << "SM_prol: index, KNN: " << index << ", " << SM_proj.col(index) << "\n";
-    }
-    */
-
-
+/*
     std::cout << "Writing results to image\n";
 
     //## Visualize the projections and nearest neighbors
@@ -229,7 +230,7 @@ int knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh) {
 
     cv::Mat img(IMG_HEIGHT, IMG_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
 
-    writeMatrixToImg(FM_proj, img, cv::Vec3b(0, 0, 255));
+    writeMatrixToImg(FM, img, cv::Vec3b(0, 0, 255));
 
     for (int index = 0; index < all_indices.size(); index++) {
       Eigen::Vector2f v2 = SM_proj.col(index);
@@ -238,6 +239,7 @@ int knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh) {
 
     cv::imwrite( "./images/modeltest.jpg", img);
     //##
+    */
 }
 
 void LoadVector(const std::string &filename, float *res, unsigned int length)
@@ -473,6 +475,8 @@ int main()
 
     loadScannedMesh(scanned_mesh);
     knn_test(face_model, scanned_mesh);
+
+
 
 	auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
 	auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];
