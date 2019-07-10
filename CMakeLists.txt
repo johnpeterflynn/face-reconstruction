@@ -27,9 +27,11 @@ else()
   message(STATUS "Found OpenCV 2 headers in: ${OpenCV_INCLUDE_DIRS}")
 endif()
 
+find_package(nabo)
+
 set(SOURCES
     src/main.cc
     src/facemodel.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
-target_link_libraries(${PROJECT_NAME} OpenMeshCore ${OpenCV_LIBS})
+target_link_libraries(${PROJECT_NAME} OpenMeshCore ${OpenCV_LIBS} nabo)
