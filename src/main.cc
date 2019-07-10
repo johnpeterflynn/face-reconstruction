@@ -21,6 +21,8 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 //typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyPolyMesh;
 #include <OpenMesh/Tools/Utils/getopt.h>
 
+#include "nabo/nabo.h"
+
 #include "facemodel.h"
 
 int surfaceNormalsTest(void)
@@ -77,6 +79,23 @@ int surfaceNormalsTest(void)
   return 0;
 }
 
+int calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
+                  Eigen::VectorXi& indices)
+{
+    const int K = indices.rows();
+
+    // Reset indices
+    indices.setZero();
+
+    Nabo::NNSearchF* nns = Nabo::NNSearchF::createKDTreeLinearHeap(M);
+    //Eigen::VectorXi indices(K);
+    Eigen::VectorXf dists2(K);
+    nns->knn(q, indices, dists2, K);
+    delete nns;
+
+    return indices(0);
+}
+
 constexpr const char* FILENAME_SCANNED_MESH = "../testData/kinectdata.off";
 
 int loadScannedMesh(MyMesh& scanned_mesh) {
@@ -102,12 +121,12 @@ int loadScannedMesh(MyMesh& scanned_mesh) {
     return 0;
 }
 
-
-void projectionTest(MyMesh& mesh, std::string s) {
+void projectionTest(const MyMesh& mesh, std::string s, int corr_index,
+                    Eigen::MatrixXf& M_out) {
     const unsigned int IMG_WIDTH = 640;
     const unsigned int IMG_HEIGHT = 480;
 
-    cv::Mat M(IMG_HEIGHT, IMG_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
+    int index = 0;
 
     for (MyMesh::VertexIter v_it = mesh.vertices_begin();
          v_it != mesh.vertices_end(); ++v_it)
@@ -129,12 +148,96 @@ void projectionTest(MyMesh& mesh, std::string s) {
 
       Eigen::Vector2f v2 = Pi * v3;
 
+      // Add 2d projection v2 to M_out
+      M_out.col(index) = v2;
+
+      // Let's allow off-screen projections for the moment, since they
+      // presumably won't be selected by KNN anyway.
+      /*
       if (0 <= v2(0) && v2(0) < IMG_WIDTH && 0 <= v2(1) && v2(1) < IMG_HEIGHT) {
-        M.at<cv::Vec3b>(cv::Point(round(v2(0)),round(v2(1)))) = cv::Vec3b(0, 0, 255);
+        cv::Vec3b vcolor;
+        if (index == corr_index) {
+          vcolor = cv::Vec3b(255, 255, 0);
+        }
+        else {
+          vcolor = cv::Vec3b(0, 0, 255);
+        }
+        M.at<cv::Vec3b>(cv::Point(round(v2(0)),round(v2(1)))) = vcolor;
       }
+      */
+
+      index++;
     }
 
-    cv::imwrite( "./images/" + s + ".jpg", M);
+    //cv::imwrite( "./images/" + s + ".jpg", M);
+}
+
+void writeMatrixToImg(const Eigen::MatrixXf& matrix, cv::Mat& img,
+                 cv::Vec3b vcolor) {
+    //if (0 <= v2(0) && v2(0) < IMG_WIDTH && 0 <= v2(1) && v2(1) < IMG_HEIGHT) {
+    for (int c = 0; c < matrix.cols(); c++) {
+        Eigen::Vector2f v2 = matrix.col(c);
+      img.at<cv::Vec3b>(cv::Point(round(v2(0)),round(v2(1)))) = vcolor;
+    }
+    //}
+}
+
+int knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh) {
+    Eigen::MatrixXf FM_proj(2, face_model.m_avg_mesh.n_vertices());
+    Eigen::MatrixXf SM_proj(2, scanned_mesh.n_vertices());
+
+    projectionTest(face_model.m_avg_mesh, "modeltest", 12539, FM_proj);
+    projectionTest(scanned_mesh, "scantest", 8319, SM_proj);
+
+    std::cout << "Num FM rows, cols: " << FM_proj.rows() << ", " << FM_proj.cols() << "\n";
+    std::cout << "Num SM rows, cols: " << FM_proj.rows() << ", " << FM_proj.cols() << "\n";
+
+    // Sample the matrices to see if they look okay.
+    std::cout << FM_proj.block<2,5>(0,100) << "\n";
+
+    std::cout << "Starting KNN\n";
+
+    const int K = 1;
+
+    // Indices for  for each column vector in FN_proj
+    Eigen::MatrixXi indices(K, FM_proj.cols());
+
+
+    std::cout << "Vector " << c << "/" << FM_proj.cols() << "\n";
+    // Index for each of the K nearest neighbors
+    Eigen::VectorXi indices(K);
+
+    //std::cout << "FM_prol column 10: " << FM_proj.col(10) << "\n";
+
+    calculate_knn(SM_proj, FM_proj.col(10), indices);
+
+    all_indices(c) = indices(0);
+
+    /*
+    for (int i = 0; i < K; i++) {
+        int index = indices(i);
+        std::cout << "SM_prol: index, KNN: " << index << ", " << SM_proj.col(index) << "\n";
+    }
+    */
+
+
+    std::cout << "Writing results to image\n";
+
+    //## Visualize the projections and nearest neighbors
+    const unsigned int IMG_WIDTH = 640;
+    const unsigned int IMG_HEIGHT = 480;
+
+    cv::Mat img(IMG_HEIGHT, IMG_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    writeMatrixToImg(FM_proj, img, cv::Vec3b(0, 0, 255));
+
+    for (int index = 0; index < all_indices.size(); index++) {
+      Eigen::Vector2f v2 = SM_proj.col(index);
+      img.at<cv::Vec3b>(cv::Point(round(v2(0)),round(v2(1)))) = cv::Vec3b(0, 255, 0);
+    }
+
+    cv::imwrite( "./images/modeltest.jpg", img);
+    //##
 }
 
 void LoadVector(const std::string &filename, float *res, unsigned int length)
@@ -369,8 +472,7 @@ int main()
     MyMesh scanned_mesh;
 
     loadScannedMesh(scanned_mesh);
-    projectionTest(face_model.m_avg_mesh, "modeltest");
-    projectionTest(scanned_mesh, "scantest");
+    knn_test(face_model, scanned_mesh);
 
 	auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
 	auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];
