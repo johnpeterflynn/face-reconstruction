@@ -20,10 +20,12 @@
 typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 //typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyPolyMesh;
 #include <OpenMesh/Tools/Utils/getopt.h>
+#include <ceres/ceres.h>
 
 #include "nabo/nabo.h"
 
 #include "facemodel.h"
+
 
 int surfaceNormalsTest(void)
 {
@@ -237,6 +239,38 @@ int knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh) {
     //##
     */
 }
+
+//-- BEGIN CERES STUFF
+struct ReconstructionCostFunctor {
+  ReconstructionCostFunctor() {}
+
+  template <class T>
+  bool operator()(T const* const data1, T* sResiduals) const {
+
+    return true;
+  }
+};
+
+void runCeres() {
+    ceres::Problem problem;
+
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 1, 1>(
+            new ReconstructionCostFunctor()),
+        nullptr, nullptr);
+
+    ceres::Solver::Options options;
+    options.max_num_iterations = 25;
+    options.linear_solver_type = ceres::DENSE_QR;
+    options.minimizer_progress_to_stdout = true;
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+
+    std::cout << summary.BriefReport() << std::endl;
+}
+
+//-- END CERES STUFF
 
 void LoadVector(const std::string &filename, float *res, unsigned int length)
 {

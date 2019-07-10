@@ -13,8 +13,8 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
 # Ceres Solver
-#find_package(Ceres REQUIRED)
-#include_directories(${CERES_INCLUDE_DIRS})
+find_package(Ceres REQUIRED)
+include_directories(${CERES_INCLUDE_DIRS})
 
 find_package( OpenCV 3 QUIET COMPONENTS core features2d)
 if (OpenCV_FOUND)
@@ -34,4 +34,4 @@ set(SOURCES
     src/facemodel.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
-target_link_libraries(${PROJECT_NAME} OpenMeshCore ${OpenCV_LIBS} nabo)
+target_link_libraries(${PROJECT_NAME} OpenMeshCore ${OpenCV_LIBS} nabo ceres)
