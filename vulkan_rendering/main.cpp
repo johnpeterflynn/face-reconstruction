@@ -702,7 +702,7 @@ private:
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
         rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
         
@@ -1042,11 +1042,14 @@ private:
         // Flags for loading the mesh
         static const int assimpFlags = aiProcess_Triangulate | aiProcess_PreTransformVertices;
 
-        scene = Importer.ReadFile("/Users/ardakeskiner/Desktop/TUM/Courses/ss19/3d_scanning_and_motion_capture/MorphableModel/testData/kinectdata.off", assimpFlags);
+        scene = Importer.ReadFile("/Users/ardakeskiner/Desktop/TUM/Courses/ss19/3d_scanning_and_motion_capture/MorphableModel/averageMesh.off", assimpFlags);
         float scale = 3.0f;
         std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
+        std::unordered_map<uint32_t, uint32_t> uniqueIndices = {};
 
         for (uint32_t m = 0; m < scene->mNumMeshes; m++) {
+          std::cout << scene->mMeshes[m]->mNumVertices << "\n";
+
           for (uint32_t v = 0; v < scene->mMeshes[m]->mNumVertices; v++) {
             Vertex vertex;
 
@@ -1072,8 +1075,25 @@ private:
                 vertices.push_back(vertex);
             }
 
-            indices.push_back(uniqueVertices[vertex]);
           }
+
+          std::cout << scene->mMeshes[m]->mNumFaces << "\n";
+
+          if (indices.size() == 0) {
+            for(uint32_t i = 0; i < scene->mMeshes[m]->mNumFaces; i++) {
+              const aiFace& Face = scene->mMeshes[m]->mFaces[i];
+              if(Face.mNumIndices == 3) {
+                  indices.push_back(Face.mIndices[0]);
+                  indices.push_back(Face.mIndices[1]);
+                  indices.push_back(Face.mIndices[2]);
+              }
+              
+            }
+          }
+          
+
+          std::cout << indices.size() << "\n";
+          std::cout << vertices.size() << "\n";
         }
 
         // tinyobj::attrib_t attrib;
@@ -1397,9 +1417,9 @@ private:
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
         
         UniformBufferObject ubo = {};
-        ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(glm::vec3(200000.0f, 200000.0f, 200000.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 500000.0f);
         ubo.proj[1][1] *= -1;
         
         void* data;
