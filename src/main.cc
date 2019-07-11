@@ -100,7 +100,8 @@ void calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
     return;
 }
 
-constexpr const char* FILENAME_SCANNED_MESH = "../testData/kinectdata.off";
+constexpr const char* FILENAME_SCANNED_MESH = "../testData/avgmesh.off";
+//"../testData/kinectdata.off";
 
 int loadScannedMesh(MyMesh& scanned_mesh) {
     OpenMesh::IO::Options ropt;
@@ -197,32 +198,40 @@ void meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) {
     }
 }
 
-int knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh) {
+int knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh, int K, Eigen::MatrixXi& indices) {
     Eigen::MatrixXf FM(3, face_model.m_avg_mesh.n_vertices());
     Eigen::MatrixXf SM(3, scanned_mesh.n_vertices());
 
     meshToMatrix(face_model.m_avg_mesh, FM);
     meshToMatrix(scanned_mesh, SM);
-
+/*
     std::cout << "Num FM rows, cols: " << FM.rows() << ", " << FM.cols() << "\n";
     std::cout << "Num SM rows, cols: " << SM.rows() << ", " << SM.cols() << "\n";
 
     // Sample the matrices to see if they look okay.
+    std::cout << "FM first 10 values\n";
+    std::cout << FM.block<3,10>(0,0) << "\n";
     std::cout << "SM first 10 values\n";
     std::cout << SM.block<3,10>(0,0) << "\n";
-
+*/
     std::cout << "Starting KNN\n";
 
-    const int K = 1;
-
     // Indices for  for each column vector in FN
-    Eigen::MatrixXi indices;
+    //Eigen::MatrixXi indices;
     indices.resize(K, FM.cols());
 
     calculate_knn(SM, FM, indices);
 
     std::cout << "Finished KNN\n";
 
+    //std::cout << "incides:\n";
+    //std::cout << indices << "\n";
+/*
+    for (int i = 0; i < indices.cols(); i++) {
+        std::cout << "Face " << i << ": " << FM.col(i).transpose() << std::endl;
+        std::cout << "Scan " << indices(0,i) << ": " << SM.col(indices(0,i)).transpose() << std::endl;
+    }
+    */
 
 /*
     std::cout << "Writing results to image\n";
@@ -284,13 +293,14 @@ struct ReconstructionCostFunctor {
 void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
               const Eigen::MatrixXi& indices,
               const Eigen::MatrixXf& shapeBasisEigen,
-              const Eigen::MatrixXf& exprBasisEigen) {
+              const Eigen::MatrixXf& exprBasisEigen,
+              Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
     ceres::Problem problem;
 
     // TODO: Should I lay this out as
     // Eigen::Map<Eigen::Matrix<T, NumberOfEigenvectors, 1> for now?
-    Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
-    Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
+    //Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
+    //Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
 
     // Model transformation
     //Eigen::Matrix3f R;
@@ -301,6 +311,13 @@ void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
     {
         // Get index of average face vertex
         int v_idx = v_it->idx();
+
+        static int x = 0;
+
+        if (x >= 100) {
+            break;
+        }
+        x++;
 
         // Constants in optimization
 
@@ -328,10 +345,12 @@ void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
                                                   exprBasisEigenRow)),
                 nullptr, alpha.data(), delta.data());
         }
+
+        std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
     }
 
     ceres::Solver::Options options;
-    options.max_num_iterations = 25;
+    options.max_num_iterations = 3;
     options.linear_solver_type = ceres::DENSE_QR;
     options.minimizer_progress_to_stdout = true;
 
@@ -409,9 +428,9 @@ int convert_basis(Eigen::MatrixXf& basis, int nVertices, int NumberOfEigenvector
     return 0;
 }
 
-int forward_pass(Eigen::MatrixXf& shape_basis, Eigen::MatrixXf& expr_basis, Eigen::VectorXf& alpha, Eigen::VectorXf& delta, Eigen::VectorXf& vertices_out)
+int forward_pass(Eigen::MatrixXf& shape_basis, Eigen::MatrixXf& expr_basis, Eigen::VectorXd& alpha, Eigen::VectorXd& delta, Eigen::VectorXf& vertices_out)
 {
-	vertices_out = shape_basis * alpha + expr_basis * delta;
+    vertices_out = shape_basis * alpha.cast<float>() + expr_basis * delta.cast<float>();
 	return 0;
 }
 
@@ -570,8 +589,10 @@ int main()
     MyMesh scanned_mesh;
 
     loadScannedMesh(scanned_mesh);
-    knn_test(face_model, scanned_mesh);
 
+    const int K = 1;
+    Eigen::MatrixXi indices;
+    knn_test(face_model, scanned_mesh, K, indices);
 
 
 	auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
@@ -590,22 +611,28 @@ int main()
 	convert_basis(*shapeBasisEigen, nVertices, NumberOfEigenvectors, shapeBasisCPU);
     convert_basis(*exprBasisEigen, nVertices, NumberOfExpressions, expressionBasisCPU);//shapeBasisCPU); // Q: Should be expressionBasisCPU?
 
-	Eigen::VectorXf * alpha = new Eigen::VectorXf(NumberOfEigenvectors);
-	Eigen::VectorXf * delta = new Eigen::VectorXf(NumberOfExpressions);
+    //Eigen::VectorXf * alpha = new Eigen::VectorXf(NumberOfEigenvectors);
+    //Eigen::VectorXf * delta = new Eigen::VectorXf(NumberOfExpressions);
 
-    *alpha = Eigen::VectorXf::Random(NumberOfEigenvectors) / 10;
-    *delta= Eigen::VectorXf::Random(NumberOfExpressions) / 10;
+    //*alpha = Eigen::VectorXf::Random(NumberOfEigenvectors) / 10;
+    //*delta= Eigen::VectorXf::Random(NumberOfExpressions) / 10;
+    Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
+    Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
 
 	Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
-	std::cout << "forward pass: " << std::endl;
+    //std::cout << "forward pass: " << std::endl;
 
-    //runCeres();
+    std::cout << "Running ceres: " << std::endl;
+    runCeres(face_model.m_avg_mesh, scanned_mesh, indices, *shapeBasisEigen, *exprBasisEigen, alpha, delta);
+    std::cout << "Ceres finished: " << std::endl;
 
-	forward_pass(*shapeBasisEigen, *exprBasisEigen, *alpha, *delta, *vertices_out);
+    std::cout << alpha << std::endl;
 
- 	LoadVector(filenameStdDevShape, shapeDevCPU, NumberOfEigenvectors);
-	LoadVector(filenameStdDevExpression, expressionDevCPU, NumberOfExpressions);
+    forward_pass(*shapeBasisEigen, *exprBasisEigen, alpha, delta, *vertices_out);
 
+    //LoadVector(filenameStdDevShape, shapeDevCPU, NumberOfEigenvectors);
+    //LoadVector(filenameStdDevExpression, expressionDevCPU, NumberOfExpressions);
+/*
 
 	constexpr int nResidualVerts = 1;
 	constexpr int nResidualsPerVert = 3;
@@ -659,7 +686,7 @@ int main()
 		update_params(*alpha, *delta, *delta_P);
 
 	}
-
+*/
     std::cout << "Writing synthesized model to file\n";
     face_model.writeSynthesizedModel(*vertices_out);
 
