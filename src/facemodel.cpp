@@ -67,7 +67,7 @@ int FaceModel::writeSynthesizedModel(const Eigen::VectorXf& diff_vertices) {
 
     try
     {
-      if (!OpenMesh::IO::write_mesh(m_avg_mesh, FILENAME_OUT_SYNTH_MESH, wopt))
+      if (!OpenMesh::IO::write_mesh(synth_mesh, FILENAME_OUT_SYNTH_MESH, wopt))
       {
         std::cerr << "Cannot write mesh to file '" << FILENAME_OUT_SYNTH_MESH
                   << "'" << std::endl;
