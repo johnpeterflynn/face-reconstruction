@@ -26,6 +26,8 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 
 #include "facemodel.h"
 
+constexpr int NumberOfEigenvectors = 160;
+constexpr int NumberOfExpressions = 76;
 
 int surfaceNormalsTest(void)
 {
@@ -242,22 +244,88 @@ int knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh) {
 
 //-- BEGIN CERES STUFF
 struct ReconstructionCostFunctor {
-  ReconstructionCostFunctor() {}
+    //EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  ReconstructionCostFunctor(double v1_face_avg_in,
+                            double v1_scan_in,
+                            const Eigen::Matrix<double, 1, NumberOfEigenvectors>& shapeBasisEigenRow_in,
+                            const Eigen::Matrix<double, 1, NumberOfExpressions>& exprBasisEigenRow_in)
+      : v1_face_avg(v1_face_avg_in), v1_scan(v1_scan_in),
+        shapeBasisEigenRow(shapeBasisEigenRow_in),
+        exprBasisEigenRow(exprBasisEigenRow_in) {}
 
   template <class T>
-  bool operator()(T const* const data1, T* sResiduals) const {
+  bool operator()(T const* const salpha, T const* const sdelta,
+                  /*T const* const sangles, T const* const st,*/
+                  T* residual) const {
+    Eigen::Map<Eigen::Matrix<T, NumberOfEigenvectors, 1> const> const alpha(salpha);
+    Eigen::Map<Eigen::Matrix<T, NumberOfExpressions, 1> const> const delta(sdelta);
+    //T residuals(sResiduals);
+
+    // WARNING: Not sure if there is an error on the T objects here
+    T a = shapeBasisEigenRow * alpha;
+    T d = exprBasisEigenRow * delta;
+
+    residual[0] = T(v1_scan) - (T(v1_face_avg) + a + d);
 
     return true;
   }
+
+  const double v1_face_avg;
+  const double v1_scan;
+
+  // TODO: Again, these are copied so need another way.
+  const Eigen::Matrix<double, 1, NumberOfEigenvectors> shapeBasisEigenRow;
+  const Eigen::Matrix<double, 1, NumberOfExpressions> exprBasisEigenRow;
 };
 
-void runCeres() {
+void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
+              const Eigen::MatrixXi& indices,
+              const Eigen::MatrixXf& shapeBasisEigen,
+              const Eigen::MatrixXf& exprBasisEigen) {
     ceres::Problem problem;
 
-    problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 1, 1>(
-            new ReconstructionCostFunctor()),
-        nullptr, nullptr);
+    // TODO: Should I lay this out as
+    // Eigen::Map<Eigen::Matrix<T, NumberOfEigenvectors, 1> for now?
+    Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
+    Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
+
+    // Model transformation
+    //Eigen::Matrix3f R;
+    //Eigen::Vector3f t;
+
+    for (MyMesh::VertexIter v_it = avg_face_mesh.vertices_begin();
+         v_it != avg_face_mesh.vertices_end(); ++v_it)
+    {
+        // Get index of average face vertex
+        int v_idx = v_it->idx();
+
+        // Constants in optimization
+
+        // Get vertex itself for average face mesh
+        MyMesh::Point p3_face_avg = avg_face_mesh.point(*v_it);
+        Eigen::Vector3d v3_face_avg(p3_face_avg[0], p3_face_avg[1], p3_face_avg[2]);
+
+        // Get nearest neighbor vertex in scanned mesh
+        MyMesh::VertexHandle v_scan_handle(indices(0, v_idx));
+        MyMesh::Point p3_scan_nn = scanned_mesh.point(v_scan_handle);
+        Eigen::Vector3d v3_scan_nn(p3_scan_nn[0], p3_scan_nn[1], p3_scan_nn[2]);
+
+        // TODO:These are being copied but pointers should be used instead
+        Eigen::Matrix<double, 1, NumberOfEigenvectors> shapeBasisEigenRow = shapeBasisEigen.row(v_idx).cast<double>();
+        Eigen::Matrix<double, 1, NumberOfExpressions> exprBasisEigenRow = exprBasisEigen.row(v_idx).cast<double>();
+
+        // For each entry in a vector v3
+        for (int i = 0; i < 3; i++) {
+            problem.AddResidualBlock(
+                // <dim of residual, dim of alpha, dim of delta>
+                new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 1,
+                        NumberOfEigenvectors, NumberOfExpressions>(
+                    new ReconstructionCostFunctor(v3_face_avg(i), v3_scan_nn(i),
+                                                  shapeBasisEigenRow,
+                                                  exprBasisEigenRow)),
+                nullptr, alpha.data(), delta.data());
+        }
+    }
 
     ceres::Solver::Options options;
     options.max_num_iterations = 25;
@@ -269,7 +337,6 @@ void runCeres() {
 
     std::cout << summary.BriefReport() << std::endl;
 }
-
 //-- END CERES STUFF
 
 void LoadVector(const std::string &filename, float *res, unsigned int length)
@@ -309,10 +376,6 @@ float* LoadEigenvectors(const std::string &filename, unsigned int components, un
 
 	return res;
 }
-
-
-constexpr int NumberOfEigenvectors = 160;
-constexpr int NumberOfExpressions = 76;
 
 typedef Eigen::DiagonalMatrix<double, NumberOfEigenvectors + NumberOfExpressions> JacobiPrecondMatrix;
 
@@ -532,6 +595,8 @@ int main()
 
 	Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
 	std::cout << "forward pass: " << std::endl;
+
+    //runCeres();
 
 	forward_pass(*shapeBasisEigen, *exprBasisEigen, *alpha, *delta, *vertices_out);
 
