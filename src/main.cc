@@ -91,7 +91,10 @@ void calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
     Nabo::NNSearchF* nns = Nabo::NNSearchF::createKDTreeLinearHeap(M);
     //Eigen::VectorXi indices(K);
     Eigen::MatrixXf dists2(K, q.cols());
-    nns->knn(q, indices, dists2, K);//,  0.1);//, NNSearchF::SORT_RESULTS);
+
+    // ALLOW_SELF_MATCH appears to be necessary to match vertices that are
+    // exactly the same.
+    nns->knn(q, indices, dists2, K,  0, Nabo::NNSearchF::ALLOW_SELF_MATCH);
     delete nns;
 
     return;
