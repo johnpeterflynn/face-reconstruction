@@ -200,10 +200,10 @@ void meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) {
 }
 
 int knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh, int K, Eigen::MatrixXi& indices) {
-    Eigen::MatrixXf FM(3, face_model.m_avg_mesh.n_vertices());
+    Eigen::MatrixXf FM(3, face_model.m_synth_mesh.n_vertices());
     Eigen::MatrixXf SM(3, scanned_mesh.n_vertices());
 
-    meshToMatrix(face_model.m_avg_mesh, FM);
+    meshToMatrix(face_model.m_synth_mesh, FM);
     meshToMatrix(scanned_mesh, SM);
 /*
     std::cout << "Num FM rows, cols: " << FM.rows() << ", " << FM.cols() << "\n";
@@ -261,10 +261,11 @@ struct ReconstructionCostFunctor {
   ReconstructionCostFunctor(const Eigen::Matrix<double, 3, 1>& v_face_avg_in,
                             const Eigen::Matrix<double, 3, 1>& v_scan_in,
                             const Eigen::Matrix<double, 3, NumberOfEigenvectors>& shapeBasisEigenRow_in,
-                            const Eigen::Matrix<double, 3, NumberOfExpressions>& exprBasisEigenRow_in)
+                            const Eigen::Matrix<double, 3, NumberOfExpressions>& exprBasisEigenRow_in,
+                            double weight_in = 1.0)
       : v_face_avg(v_face_avg_in), v_scan(v_scan_in),
         shapeBasisEigenRow(shapeBasisEigenRow_in),
-        exprBasisEigenRow(exprBasisEigenRow_in) {}
+        exprBasisEigenRow(exprBasisEigenRow_in), weight(weight_in) {}
 
   template <class T>
   bool operator()(T const* const salpha,/* T const* const sdelta,*/
@@ -274,7 +275,7 @@ struct ReconstructionCostFunctor {
     //Eigen::Map<Eigen::Matrix<T, NumberOfExpressions, 1> const> const delta(sdelta);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(sresiduals);
 
-    residuals = v_scan - (v_face_avg + shapeBasisEigenRow * alpha /*+ exprBasisEigenRow * delta*/);
+    residuals = sqrt(T(weight)) * (v_scan - (v_face_avg + shapeBasisEigenRow * alpha /*+ exprBasisEigenRow * delta*/));
 
     return true;
   }
@@ -285,6 +286,8 @@ struct ReconstructionCostFunctor {
   // TODO: Again, these are copied so need another way.
   const Eigen::Matrix<double, 3, NumberOfEigenvectors> shapeBasisEigenRow;
   const Eigen::Matrix<double, 3, NumberOfExpressions> exprBasisEigenRow;
+
+  const double weight; // Weight of residual
 };
 
 struct GeometryRegularizationCostFunctor {
@@ -308,6 +311,7 @@ private:
 
 void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
               const Eigen::MatrixXi& indices,
+              const std::set<int>& matches,
               const Eigen::MatrixXf& shapeBasisEigen,
               const Eigen::MatrixXf& exprBasisEigen,
               const Eigen::VectorXf& shapeDevEigen,
@@ -324,17 +328,11 @@ void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
     {
         // Get index of average face vertex
         int v_idx = v_it->idx();
-/*
-        static int x = 0;
 
-        if (x < 50) {
-            x++;
+        if ((v_idx % 20) != 0) {
             continue;
         }
-        else {
-            x = 0;
-        }
-*/
+
 
         // Constants in optimization
 
@@ -353,6 +351,12 @@ void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
         Eigen::Matrix<double, 3, NumberOfExpressions> exprBasisEigenRows
                 = exprBasisEigen.block<3, NumberOfExpressions>(3 * v_idx, 0).cast<double>();
 
+        // Add more weight to sparse correspondences
+        double weight = 1.0;
+        if (matches.find(v_idx) != matches.end()) {
+            weight = 100.0;
+        }
+
         // For each entry in a vector v3
         problem.AddResidualBlock(
             // <dim of residual, dim of alpha, dim of delta>
@@ -360,10 +364,10 @@ void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
                     NumberOfEigenvectors/*, NumberOfExpressions*/>(
                 new ReconstructionCostFunctor(v3_face_avg, v3_scan_nn,
                                               shapeBasisEigenRows,
-                                              exprBasisEigenRows)),
+                                              exprBasisEigenRows, weight)),
             nullptr, alpha.data()/*, delta.data()*/);
 
-        std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
+        //std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
     }
 
     // Add regularization for alpha
@@ -642,7 +646,6 @@ int main()
 
     const int K = 1;
     Eigen::MatrixXi indices;
-    knn_test(face_model, scanned_mesh, K, indices);
 
 
 	auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
@@ -680,15 +683,38 @@ int main()
 	Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
     //std::cout << "forward pass: " << std::endl;
 
-    std::cout << "Running ceres: " << std::endl;
-    runCeres(face_model.m_avg_mesh, scanned_mesh, indices, *shapeBasisEigen,
-             *exprBasisEigen, *shapeDevEigen, *exprDevEigen, alpha, delta);
-    std::cout << "Ceres finished: " << std::endl;
+    std::cout << "Optimization starting: " << std::endl;
+    for (int i = 0; i < 3; i++) {
+        knn_test(face_model, scanned_mesh, K, indices);
+
+        std::map<int, int> match_indices;
+        match_indices[2000] = 2000;
+        match_indices[10000] = 10000;
+        match_indices[25000] = 25000;
+        match_indices[30000] = 30000;
+        match_indices[50000] = 50000;
+
+        std::set<int> matches;
+        for (auto entry : match_indices) {
+            matches.insert(entry.first);
+            indices(0, entry.first) = entry.second;
+        }
+
+        std::cout << "Running ceres: " << std::endl;
+        runCeres(face_model.m_synth_mesh, scanned_mesh, indices, matches,
+                 *shapeBasisEigen, *exprBasisEigen, *shapeDevEigen, *exprDevEigen,
+                 alpha, delta);
+
+        std::cout << "Ceres finished: " << std::endl;
+
+        forward_pass(*shapeBasisEigen, *exprBasisEigen, alpha, delta, *vertices_out);
+
+        face_model.synthesizeModel(*vertices_out);
+    }
+
+    std::cout << "Optimization finished: " << std::endl;
 
     std::cout << alpha << std::endl;
-
-    forward_pass(*shapeBasisEigen, *exprBasisEigen, alpha, delta, *vertices_out);
-
 /*
 
 	constexpr int nResidualVerts = 1;
@@ -745,7 +771,7 @@ int main()
 	}
 */
     std::cout << "Writing synthesized model to file\n";
-    face_model.writeSynthesizedModel(*vertices_out);
+    face_model.writeSynthesizedModel();
 
 	std::cout << "Hello World!\n"; 
 }

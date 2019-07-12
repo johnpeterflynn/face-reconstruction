@@ -14,10 +14,12 @@ public:
     FaceModel();
 
     int loadAverageMesh();
-    int writeSynthesizedModel(const Eigen::VectorXf& diff_vertices);
+    int synthesizeModel(const Eigen::VectorXf& diff_vertices);
+    int writeSynthesizedModel();
 
 public:
     FaceMesh m_avg_mesh;
+    FaceMesh m_synth_mesh;
 
 };
 

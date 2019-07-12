@@ -42,14 +42,16 @@ int FaceModel::loadAverageMesh() {
       m_avg_mesh.set_point( *v_it, m_avg_mesh.point(*v_it) * SCALE_AVG_MESH );
     }
 
+    // Save synth mesh as average mesh in the beginning.
+    m_synth_mesh = m_avg_mesh;
+
     return 0;
 }
 
-int FaceModel::writeSynthesizedModel(const Eigen::VectorXf& diff_vertices) {
-    FaceMesh synth_mesh = m_avg_mesh;
 
-    OpenMesh::IO::Options wopt;
-    wopt += OpenMesh::IO::Options::VertexColor;
+
+int FaceModel::synthesizeModel(const Eigen::VectorXf& diff_vertices) {
+    FaceMesh synth_mesh = m_avg_mesh;
 
     size_t i = 0;
 
@@ -65,9 +67,18 @@ int FaceModel::writeSynthesizedModel(const Eigen::VectorXf& diff_vertices) {
       i += 3;
     }
 
+    m_synth_mesh = synth_mesh;
+
+    return 0;
+}
+
+int FaceModel::writeSynthesizedModel() {
+    OpenMesh::IO::Options wopt;
+    wopt += OpenMesh::IO::Options::VertexColor;
+
     try
     {
-      if (!OpenMesh::IO::write_mesh(synth_mesh, FILENAME_OUT_SYNTH_MESH, wopt))
+      if (!OpenMesh::IO::write_mesh(m_synth_mesh, FILENAME_OUT_SYNTH_MESH, wopt))
       {
         std::cerr << "Cannot write mesh to file '" << FILENAME_OUT_SYNTH_MESH
                   << "'" << std::endl;
