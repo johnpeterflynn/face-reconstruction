@@ -291,6 +291,8 @@ void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
               const Eigen::MatrixXi& indices,
               const Eigen::MatrixXf& shapeBasisEigen,
               const Eigen::MatrixXf& exprBasisEigen,
+              const Eigen::VectorXf& shapeDevEigen,
+              const Eigen::VectorXf& exprDevEigen,
               Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
     ceres::Problem problem;
 
@@ -420,6 +422,15 @@ int convert_basis(Eigen::MatrixXf& basis, int nVertices, int NumberOfEigenvector
             basis(j * 3 + 1, i) = basisCPU[i * nVertices + j].y;
             basis(j * 3 + 2, i) = basisCPU[i * nVertices + j].z;
         }
+    }
+
+    return 0;
+}
+
+int convert_deviations(Eigen::VectorXf& devs, int num_dims, float* devCPU)
+{
+    for(int i = 0; i < num_dims; i++) {
+            devs(i, 0) = devCPU[i];
     }
 
     return 0;
@@ -597,16 +608,24 @@ int main()
 	LoadVector(filenameBasisShape, (float*)shapeBasisCPU, 4 * nVertices * NumberOfEigenvectors);
 	LoadVector(filenameBasisExpression, (float*)expressionBasisCPU, 4 * nVertices * NumberOfExpressions);
 
-	auto shapeDevCPU = new float[NumberOfEigenvectors];
-	auto expressionDevCPU = new float[NumberOfExpressions];
+    auto shapeDevCPU = new float[NumberOfEigenvectors];
+    auto expressionDevCPU = new float[NumberOfExpressions];
+    LoadVector(filenameStdDevShape, shapeDevCPU, NumberOfEigenvectors);
+    LoadVector(filenameStdDevExpression, expressionDevCPU, NumberOfExpressions);
 
-	Eigen::MatrixXf * shapeBasisEigen = new Eigen::MatrixXf(3 * nVertices, NumberOfEigenvectors);
+    Eigen::MatrixXf * shapeBasisEigen = new Eigen::MatrixXf(3 * nVertices, NumberOfEigenvectors);
 	Eigen::MatrixXf * exprBasisEigen = new Eigen::MatrixXf(3 * nVertices, NumberOfExpressions);
 	
+    Eigen::VectorXf * shapeDevEigen = new Eigen::VectorXf(NumberOfEigenvectors);
+    Eigen::VectorXf * exprDevEigen = new Eigen::VectorXf(NumberOfExpressions);
+
 	std::cout << "converting the basis: " << std::endl;
 
 	convert_basis(*shapeBasisEigen, nVertices, NumberOfEigenvectors, shapeBasisCPU);
     convert_basis(*exprBasisEigen, nVertices, NumberOfExpressions, expressionBasisCPU);//shapeBasisCPU); // Q: Should be expressionBasisCPU?
+
+    convert_deviations(*shapeDevEigen, NumberOfEigenvectors, shapeDevCPU);
+    convert_deviations(*exprDevEigen, NumberOfExpressions, expressionDevCPU);
 
     //Eigen::VectorXf * alpha = new Eigen::VectorXf(NumberOfEigenvectors);
     //Eigen::VectorXf * delta = new Eigen::VectorXf(NumberOfExpressions);
@@ -620,15 +639,14 @@ int main()
     //std::cout << "forward pass: " << std::endl;
 
     std::cout << "Running ceres: " << std::endl;
-    runCeres(face_model.m_avg_mesh, scanned_mesh, indices, *shapeBasisEigen, *exprBasisEigen, alpha, delta);
+    runCeres(face_model.m_avg_mesh, scanned_mesh, indices, *shapeBasisEigen,
+             *exprBasisEigen, *shapeDevEigen, *exprDevEigen, alpha, delta);
     std::cout << "Ceres finished: " << std::endl;
 
     std::cout << alpha << std::endl;
 
     forward_pass(*shapeBasisEigen, *exprBasisEigen, alpha, delta, *vertices_out);
 
-    //LoadVector(filenameStdDevShape, shapeDevCPU, NumberOfEigenvectors);
-    //LoadVector(filenameStdDevExpression, expressionDevCPU, NumberOfExpressions);
 /*
 
 	constexpr int nResidualVerts = 1;
