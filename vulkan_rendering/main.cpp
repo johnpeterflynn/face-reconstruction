@@ -26,6 +26,12 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <assimp/Importer.hpp> 
+#include <assimp/scene.h>     
+#include <assimp/postprocess.h>
+#include <assimp/cimport.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -61,6 +67,7 @@ const std::vector<const char*> validationLayers = {
 const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
+
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -102,7 +109,6 @@ struct SwapChainSupportDetails {
 struct Vertex {
     glm::vec3 pos;
     glm::vec3 color;
-    glm::vec2 texCoord;
     
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription = {};
@@ -113,8 +119,8 @@ struct Vertex {
         return bindingDescription;
     }
     
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
         
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
@@ -126,23 +132,18 @@ struct Vertex {
         attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[1].offset = offsetof(Vertex, color);
         
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-        
         return attributeDescriptions;
     }
     
     bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+        return pos == other.pos && color == other.color;
     }
 };
 
 namespace std {
     template<> struct hash<Vertex> {
         size_t operator()(Vertex const& vertex) const {
-            return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+            return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1);
         }
     };
 }
@@ -699,7 +700,7 @@ private:
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
         rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
         
@@ -1033,42 +1034,102 @@ private:
     }
     
     void loadModel() {
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string warn, err;
-        
-        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
-            throw std::runtime_error(warn + err);
-        }
-        
+        const aiScene* scene;
+		    Assimp::Importer Importer;
+
+        // Flags for loading the mesh
+        static const int assimpFlags = aiProcess_Triangulate | aiProcess_PreTransformVertices;
+
+        scene = Importer.ReadFile("/Users/ardakeskiner/Desktop/TUM/Courses/ss19/3d_scanning_and_motion_capture/MorphableModel/averageMesh.off", assimpFlags);
+        float scale = 3.0f;
         std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
-        
-        for (const auto& shape : shapes) {
-            for (const auto& index : shape.mesh.indices) {
-                Vertex vertex = {};
-                
-                vertex.pos = {
-                    attrib.vertices[3 * index.vertex_index + 0],
-                    attrib.vertices[3 * index.vertex_index + 1],
-                    attrib.vertices[3 * index.vertex_index + 2]
-                };
-                
-                vertex.texCoord = {
-                    attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-                };
-                
-                vertex.color = {1.0f, 1.0f, 1.0f};
-                
-                if (uniqueVertices.count(vertex) == 0) {
-                    uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                    vertices.push_back(vertex);
-                }
-                
-                indices.push_back(uniqueVertices[vertex]);
+        std::unordered_map<uint32_t, uint32_t> uniqueIndices = {};
+
+        for (uint32_t m = 0; m < scene->mNumMeshes; m++) {
+          std::cout << scene->mMeshes[m]->mNumVertices << "\n";
+
+          for (uint32_t v = 0; v < scene->mMeshes[m]->mNumVertices; v++) {
+            Vertex vertex;
+
+            // Use glm make_* functions to convert ASSIMP vectors to glm vectors
+            vertex.pos = {
+                scene->mMeshes[m]->mVertices[v].x,
+                scene->mMeshes[m]->mVertices[v].y,
+                scene->mMeshes[m]->mVertices[v].z,
+            };
+
+            vertex.color = {
+              scene->mMeshes[m]->mColors[0][v].r / 255.0f,
+              scene->mMeshes[m]->mColors[0][v].g / 255.0f,
+              scene->mMeshes[m]->mColors[0][v].b / 255.0f
+            };
+            
+            // vertex.color = (scene->mMeshes[m]->HasVertexColors(0)) ? glm::make_vec3(&scene->mMeshes[m]->mColors[0][v].r) : glm::vec3(1.0f);
+
+
+
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                vertices.push_back(vertex);
             }
+
+          }
+
+          std::cout << scene->mMeshes[m]->mNumFaces << "\n";
+
+          if (indices.size() == 0) {
+            for(uint32_t i = 0; i < scene->mMeshes[m]->mNumFaces; i++) {
+              const aiFace& Face = scene->mMeshes[m]->mFaces[i];
+              if(Face.mNumIndices == 3) {
+                  indices.push_back(Face.mIndices[0]);
+                  indices.push_back(Face.mIndices[1]);
+                  indices.push_back(Face.mIndices[2]);
+              }
+              
+            }
+          }
+          
+
+          std::cout << indices.size() << "\n";
+          std::cout << vertices.size() << "\n";
         }
+
+        // tinyobj::attrib_t attrib;
+        // std::vector<tinyobj::shape_t> shapes;
+        // std::vector<tinyobj::material_t> materials;
+        // std::string warn, err;
+        
+        // if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
+        //     throw std::runtime_error(warn + err);
+        // }
+
+        // std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
+
+        // for (const auto& shape : shapes) {
+        //     for (const auto& index : shape.mesh.indices) {
+        //         Vertex vertex = {};
+                
+        //         vertex.pos = {
+        //             attrib.vertices[3 * index.vertex_index + 0],
+        //             attrib.vertices[3 * index.vertex_index + 1],
+        //             attrib.vertices[3 * index.vertex_index + 2]
+        //         };
+                
+        //         // vertex.texCoord = {
+        //         //     attrib.texcoords[2 * index.texcoord_index + 0],
+        //         //     1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+        //         // };
+                
+        //         vertex.color = {1.0f, 1.0f, 1.0f};
+                
+        //         if (uniqueVertices.count(vertex) == 0) {
+        //             uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+        //             vertices.push_back(vertex);
+        //         }
+                
+        //         indices.push_back(uniqueVertices[vertex]);
+        //     }
+        // }
     }
     
     void createVertexBuffer() {
@@ -1355,8 +1416,8 @@ private:
         
         UniformBufferObject ubo = {};
         ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+        ubo.view = glm::lookAt(glm::vec3(200000.0f, 200000.0f, 200000.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 500000.0f);
         ubo.proj[1][1] *= -1;
         
         void* data;
