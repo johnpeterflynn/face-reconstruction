@@ -1,6 +1,8 @@
 #include "facemodel.h"
 
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Tools/Utils/getopt.h>
@@ -9,9 +11,52 @@
 constexpr const char* FILENAME_AVG_MESH = "../models/averageMesh.off";
 constexpr const char* FILENAME_OUT_SYNTH_MESH = "synthesizedMesh.off";
 
-FaceModel::FaceModel()
+constexpr const char* filenameBasisShape = "ShapeBasis.matrix";
+constexpr const char* filenameBasisExpression = "ExpressionBasis.matrix";
+constexpr const char* filenameStdDevShape = "StandardDeviationShape.vec";
+constexpr const char* filenameStdDevExpression = "StandardDeviationExpression.vec";
+
+
+FaceModel::FaceModel(const std::string &path, int n_eigenvec, int n_exp, int n_vert)
+    : NumberOfEigenvectors(n_eigenvec), NumberOfExpressions(n_exp),
+      nVertices(n_vert),
+    shapeBasisEigen(3 * nVertices, NumberOfEigenvectors),
+    exprBasisEigen(3 * nVertices, NumberOfExpressions),
+    shapeDevEigen(NumberOfEigenvectors),
+    exprDevEigen(NumberOfExpressions)
 {
+    load(path);
     loadAverageMesh();
+}
+
+void FaceModel::load(const std::string &path) {
+    std::string pathBasisShape = path + "/" + filenameBasisShape;
+    std::string pathBasisExpression = path + "/" + filenameBasisExpression;
+    std::string pathStdDevShape = path + "/" + filenameStdDevShape;
+    std::string pathStdDevExpression = path + "/" + filenameBasisExpression;
+
+    auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
+    auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];
+    loadVector(pathBasisShape, (float*)shapeBasisCPU, 4 * nVertices * NumberOfEigenvectors);
+    loadVector(pathBasisExpression, (float*)expressionBasisCPU, 4 * nVertices * NumberOfExpressions);
+
+    auto shapeDevCPU = new float[NumberOfEigenvectors];
+    auto expressionDevCPU = new float[NumberOfExpressions];
+    loadVector(pathStdDevShape, shapeDevCPU, NumberOfEigenvectors);
+    loadVector(pathStdDevExpression, expressionDevCPU, NumberOfExpressions);
+
+    convertBasis(shapeBasisEigen, nVertices, NumberOfEigenvectors, shapeBasisCPU);
+    convertBasis(exprBasisEigen, nVertices, NumberOfExpressions, expressionBasisCPU);
+
+    convertDeviations(shapeDevEigen, NumberOfEigenvectors, shapeDevCPU);
+    convertDeviations(exprDevEigen, NumberOfExpressions, expressionDevCPU);
+
+    loadAverageMesh();
+
+    delete[] shapeBasisCPU;
+    delete[] expressionBasisCPU;
+    delete[] shapeDevCPU;
+    delete[] expressionDevCPU;
 }
 
 int FaceModel::loadAverageMesh() {
@@ -48,7 +93,65 @@ int FaceModel::loadAverageMesh() {
     return 0;
 }
 
+void FaceModel::loadVector(const std::string &filename, float *res, unsigned int length)
+{
+    std::ifstream in(filename, std::ifstream::in | std::ifstream::binary);
+    if (!in)
+    {
+        std::cout << "ERROR:\tCan not open file: " << filename << std::endl;
+        while (1);
+    }
+    unsigned int numberOfEntries;
+    in.read((char*)&numberOfEntries, sizeof(unsigned int));
+    if (length == 0) length = numberOfEntries;
+    in.read((char*)(res), length * sizeof(float));
 
+    in.close();
+}
+
+void FaceModel::progressBar(const char* str, int num)
+{
+    return;
+}
+
+float* FaceModel::loadEigenvectors(const std::string &filename, unsigned int components, unsigned int numberOfEigenvectors)
+{
+    float *res = new float[components*numberOfEigenvectors];
+
+    for (unsigned int i = 0; i < numberOfEigenvectors; i++)
+    {
+        progressBar("Load Model Basis:", i / float(numberOfEigenvectors));
+        std::stringstream ss;
+        ss << filename << i << ".vec";
+
+        loadVector(ss.str().c_str(), &(res[components*i]), 0);
+    }
+    progressBar("Load Model Basis:", 1.0f);
+
+    return res;
+}
+
+int FaceModel::convertBasis(Eigen::MatrixXf& basis, int nVertices, int numCols, float4* basisCPU)
+{
+    for(int i = 0; i < numCols; i++) {
+        for (int j = 0; j < nVertices; j++) {
+            basis(j * 3 + 0, i) = basisCPU[i * nVertices + j].x;
+            basis(j * 3 + 1, i) = basisCPU[i * nVertices + j].y;
+            basis(j * 3 + 2, i) = basisCPU[i * nVertices + j].z;
+        }
+    }
+
+    return 0;
+}
+
+int FaceModel::convertDeviations(Eigen::VectorXf& devs, int num_dims, float* devCPU)
+{
+    for(int i = 0; i < num_dims; i++) {
+            devs(i, 0) = devCPU[i];
+    }
+
+    return 0;
+}
 
 int FaceModel::synthesizeModel(const Eigen::VectorXf& diff_vertices) {
     FaceMesh synth_mesh = m_avg_mesh;

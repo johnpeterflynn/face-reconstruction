@@ -3,9 +3,8 @@
 
 #include "pch.h"
 #include <iostream>
-#include <fstream>
+
 #include <string>
-#include <sstream>
 #include <Eigen/Dense>
 #include <vector>
 
@@ -13,7 +12,6 @@
 //#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <iostream>
 
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
@@ -29,6 +27,7 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 constexpr int NumberOfEigenvectors = 160;
 constexpr int NumberOfExpressions = 76;
 constexpr int nVertices = 53490;
+constexpr const char* modelPath = "../models";
 
 int surfaceNormalsTest(void)
 {
@@ -406,81 +405,10 @@ void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
 }
 //-- END CERES STUFF
 
-void LoadVector(const std::string &filename, float *res, unsigned int length)
-{
-	std::ifstream in(filename, std::ifstream::in | std::ifstream::binary);
-	if (!in)
-	{
-		std::cout << "ERROR:\tCan not open file: " << filename << std::endl;
-		while (1);
-	}
-	unsigned int numberOfEntries;
-	in.read((char*)&numberOfEntries, sizeof(unsigned int));
-	if (length == 0) length = numberOfEntries;
-	in.read((char*)(res), length * sizeof(float));
 
-	in.close();
-}
-
-void ProgressBar(const char* str, int num)
-{
-	return;
-}
-
-float* LoadEigenvectors(const std::string &filename, unsigned int components, unsigned int numberOfEigenvectors)
-{
-	float *res = new float[components*numberOfEigenvectors];
-
-	for (unsigned int i = 0; i < numberOfEigenvectors; i++)
-	{
-		ProgressBar("Load Model Basis:", i / float(numberOfEigenvectors));
-		std::stringstream ss;
-		ss << filename << i << ".vec";
-
-		LoadVector(ss.str().c_str(), &(res[components*i]), 0);
-	}
-	ProgressBar("Load Model Basis:", 1.0f);
-
-	return res;
-}
 
 typedef Eigen::DiagonalMatrix<double, NumberOfEigenvectors + NumberOfExpressions> JacobiPrecondMatrix;
 
-
-typedef struct float4 {
-	float x;
-	float y;
-	float z;
-	float w;
-} float4;
-constexpr const char* filenameBasisShape = "../models/ShapeBasis.matrix";
-constexpr const char* filenameBasisExpression = "../models/ExpressionBasis.matrix";
-constexpr const char* filenameStdDevShape = "../models/StandardDeviationShape.vec";
-
-constexpr const char* filenameStdDevExpression = "../models/StandardDeviationExpression.vec";
-
-
-int convert_basis(Eigen::MatrixXf& basis, int nVertices, int NumberOfEigenvectors, float4* basisCPU)
-{
-    for(int i = 0; i < NumberOfEigenvectors; i++) {
-        for (int j = 0; j < nVertices; j++) {
-            basis(j * 3 + 0, i) = basisCPU[i * nVertices + j].x;
-            basis(j * 3 + 1, i) = basisCPU[i * nVertices + j].y;
-            basis(j * 3 + 2, i) = basisCPU[i * nVertices + j].z;
-        }
-    }
-
-    return 0;
-}
-
-int convert_deviations(Eigen::VectorXf& devs, int num_dims, float* devCPU)
-{
-    for(int i = 0; i < num_dims; i++) {
-            devs(i, 0) = devCPU[i];
-    }
-
-    return 0;
-}
 
 int forward_pass(const Eigen::MatrixXf& shape_basis, const Eigen::MatrixXf& expr_basis, const Eigen::VectorXd& alpha, const Eigen::VectorXd& delta, Eigen::VectorXf& vertices_out)
 {
@@ -637,18 +565,15 @@ int update_params(Eigen::VectorXf& alpha, Eigen::VectorXf& delta, Eigen::VectorX
 
 int cg_solver_helper(Eigen::MatrixXf& A, Eigen::VectorXf& B, Eigen::VectorXf& X);
 
-int run(const Eigen::MatrixXf& shapeBasisEigen, const Eigen::MatrixXf& exprBasisEigen,
+int run(FaceModel& face_model, const Eigen::MatrixXf& shapeBasisEigen, const Eigen::MatrixXf& exprBasisEigen,
         const Eigen::VectorXf& shapeDevEigen, const Eigen::VectorXf& exprDevEigen,
         Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
-    FaceModel face_model;
     MyMesh scanned_mesh;
 
     loadScannedMesh(scanned_mesh);
 
     const int K = 1;
     Eigen::MatrixXi indices;
-
-    Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
 
     std::cout << "Optimization starting: " << std::endl;
     for (int i = 0; i < 3; i++) {
@@ -673,56 +598,28 @@ int run(const Eigen::MatrixXf& shapeBasisEigen, const Eigen::MatrixXf& exprBasis
                  alpha, delta);
 
         std::cout << "Ceres finished: " << std::endl;
-
-        forward_pass(shapeBasisEigen, exprBasisEigen, alpha, delta, *vertices_out);
-
-        face_model.synthesizeModel(*vertices_out);
     }
 
     std::cout << "Optimization finished: " << std::endl;
-
-    std::cout << "Writing synthesized model to file\n";
-    face_model.writeSynthesizedModel();
 }
 
 int main()
 {
-	auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
-	auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];
-	LoadVector(filenameBasisShape, (float*)shapeBasisCPU, 4 * nVertices * NumberOfEigenvectors);
-	LoadVector(filenameBasisExpression, (float*)expressionBasisCPU, 4 * nVertices * NumberOfExpressions);
-
-    auto shapeDevCPU = new float[NumberOfEigenvectors];
-    auto expressionDevCPU = new float[NumberOfExpressions];
-    LoadVector(filenameStdDevShape, shapeDevCPU, NumberOfEigenvectors);
-    LoadVector(filenameStdDevExpression, expressionDevCPU, NumberOfExpressions);
-
-    Eigen::MatrixXf shapeBasisEigen(3 * nVertices, NumberOfEigenvectors);
-    Eigen::MatrixXf exprBasisEigen(3 * nVertices, NumberOfExpressions);
-	
-    Eigen::VectorXf shapeDevEigen(NumberOfEigenvectors);
-    Eigen::VectorXf exprDevEigen(NumberOfExpressions);
-
-	std::cout << "converting the basis: " << std::endl;
-
-    convert_basis(shapeBasisEigen, nVertices, NumberOfEigenvectors, shapeBasisCPU);
-    convert_basis(exprBasisEigen, nVertices, NumberOfExpressions, expressionBasisCPU);
-
-    convert_deviations(shapeDevEigen, NumberOfEigenvectors, shapeDevCPU);
-    convert_deviations(exprDevEigen, NumberOfExpressions, expressionDevCPU);
-
-    //Eigen::VectorXf * alpha = new Eigen::VectorXf(NumberOfEigenvectors);
-    //Eigen::VectorXf * delta = new Eigen::VectorXf(NumberOfExpressions);
-
-    //*alpha = Eigen::VectorXf::Random(NumberOfEigenvectors) / 10;
-    //*delta= Eigen::VectorXf::Random(NumberOfExpressions) / 10;
     Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
 
+    //FaceModelLoader fml(modelPath, NumberOfEigenvectors, NumberOfExpressions, nVertices);
+    FaceModel face_model(modelPath, NumberOfEigenvectors, NumberOfExpressions, nVertices);
+    run(face_model, face_model.shapeBasisEigen, face_model.exprBasisEigen, face_model.shapeDevEigen, face_model.shapeDevEigen, alpha, delta);
 
-    //std::cout << "forward pass: " << std::endl;
+    Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
 
-    run(shapeBasisEigen, exprBasisEigen, shapeDevEigen, shapeDevEigen, alpha, delta);
+    forward_pass(face_model.shapeBasisEigen, face_model.exprBasisEigen, alpha, delta, *vertices_out);
+
+    face_model.synthesizeModel(*vertices_out);
+
+    std::cout << "Writing synthesized model to file\n";
+    face_model.writeSynthesizedModel();
 
     std::cout << alpha << std::endl;
 /*
