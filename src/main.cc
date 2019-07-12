@@ -482,7 +482,7 @@ int convert_deviations(Eigen::VectorXf& devs, int num_dims, float* devCPU)
     return 0;
 }
 
-int forward_pass(Eigen::MatrixXf& shape_basis, Eigen::MatrixXf& expr_basis, Eigen::VectorXd& alpha, Eigen::VectorXd& delta, Eigen::VectorXf& vertices_out)
+int forward_pass(const Eigen::MatrixXf& shape_basis, const Eigen::MatrixXf& expr_basis, const Eigen::VectorXd& alpha, const Eigen::VectorXd& delta, Eigen::VectorXf& vertices_out)
 {
     vertices_out = shape_basis * alpha.cast<float>() + expr_basis * delta.cast<float>();
 	return 0;
@@ -637,8 +637,9 @@ int update_params(Eigen::VectorXf& alpha, Eigen::VectorXf& delta, Eigen::VectorX
 
 int cg_solver_helper(Eigen::MatrixXf& A, Eigen::VectorXf& B, Eigen::VectorXf& X);
 
-int main()
-{
+int run(const Eigen::MatrixXf& shapeBasisEigen, const Eigen::MatrixXf& exprBasisEigen,
+        const Eigen::VectorXf& shapeDevEigen, const Eigen::VectorXf& exprDevEigen,
+        Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
     FaceModel face_model;
     MyMesh scanned_mesh;
 
@@ -647,7 +648,45 @@ int main()
     const int K = 1;
     Eigen::MatrixXi indices;
 
+    Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
 
+    std::cout << "Optimization starting: " << std::endl;
+    for (int i = 0; i < 3; i++) {
+        knn_test(face_model, scanned_mesh, K, indices);
+
+        std::map<int, int> match_indices;
+        match_indices[2000] = 2000;
+        match_indices[10000] = 10000;
+        match_indices[25000] = 25000;
+        match_indices[30000] = 30000;
+        match_indices[50000] = 50000;
+
+        std::set<int> matches;
+        for (auto entry : match_indices) {
+            matches.insert(entry.first);
+            indices(0, entry.first) = entry.second;
+        }
+
+        std::cout << "Running ceres: " << std::endl;
+        runCeres(face_model.m_synth_mesh, scanned_mesh, indices, matches,
+                 shapeBasisEigen, exprBasisEigen, shapeDevEigen, exprDevEigen,
+                 alpha, delta);
+
+        std::cout << "Ceres finished: " << std::endl;
+
+        forward_pass(shapeBasisEigen, exprBasisEigen, alpha, delta, *vertices_out);
+
+        face_model.synthesizeModel(*vertices_out);
+    }
+
+    std::cout << "Optimization finished: " << std::endl;
+
+    std::cout << "Writing synthesized model to file\n";
+    face_model.writeSynthesizedModel();
+}
+
+int main()
+{
 	auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
 	auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];
 	LoadVector(filenameBasisShape, (float*)shapeBasisCPU, 4 * nVertices * NumberOfEigenvectors);
@@ -680,39 +719,10 @@ int main()
     Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
 
-	Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
+
     //std::cout << "forward pass: " << std::endl;
 
-    std::cout << "Optimization starting: " << std::endl;
-    for (int i = 0; i < 3; i++) {
-        knn_test(face_model, scanned_mesh, K, indices);
-
-        std::map<int, int> match_indices;
-        match_indices[2000] = 2000;
-        match_indices[10000] = 10000;
-        match_indices[25000] = 25000;
-        match_indices[30000] = 30000;
-        match_indices[50000] = 50000;
-
-        std::set<int> matches;
-        for (auto entry : match_indices) {
-            matches.insert(entry.first);
-            indices(0, entry.first) = entry.second;
-        }
-
-        std::cout << "Running ceres: " << std::endl;
-        runCeres(face_model.m_synth_mesh, scanned_mesh, indices, matches,
-                 *shapeBasisEigen, *exprBasisEigen, *shapeDevEigen, *exprDevEigen,
-                 alpha, delta);
-
-        std::cout << "Ceres finished: " << std::endl;
-
-        forward_pass(*shapeBasisEigen, *exprBasisEigen, alpha, delta, *vertices_out);
-
-        face_model.synthesizeModel(*vertices_out);
-    }
-
-    std::cout << "Optimization finished: " << std::endl;
+    run(*shapeBasisEigen, *exprBasisEigen, *shapeDevEigen, *shapeDevEigen, alpha, delta);
 
     std::cout << alpha << std::endl;
 /*
@@ -770,9 +780,6 @@ int main()
 
 	}
 */
-    std::cout << "Writing synthesized model to file\n";
-    face_model.writeSynthesizedModel();
-
 	std::cout << "Hello World!\n"; 
 }
 
