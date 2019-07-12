@@ -287,6 +287,25 @@ struct ReconstructionCostFunctor {
   const Eigen::Matrix<double, 3, NumberOfExpressions> exprBasisEigenRow;
 };
 
+struct GeometryRegularizationCostFunctor {
+  GeometryRegularizationCostFunctor(double lambda_in, double stddev_in, int index_in)
+      : lambda(lambda_in), index(index_in), stddev(stddev_in) {}
+
+  template <class T>
+  bool operator()(T const* const params_in, T* residuals) const {
+    const T param = params_in[index];
+
+    residuals[0] = sqrt(lambda) * param / stddev;
+
+    return true;
+  }
+
+private:
+    const double lambda;
+    const int index;
+    const double stddev;
+};
+
 void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
               const Eigen::MatrixXi& indices,
               const Eigen::MatrixXf& shapeBasisEigen,
@@ -345,6 +364,29 @@ void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
             nullptr, alpha.data()/*, delta.data()*/);
 
         std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
+    }
+
+    // Add regularization for alpha
+    double lambda = 0.000005; // regularization param
+    // Q: TODO: Is it a waste here to pass the whole alpha and delta? Would it
+    // be better to make one large residual for alpha and delta?
+    for (int i = 0; i < NumberOfEigenvectors; i++) {
+        problem.AddResidualBlock(
+            // <dim of residual, dim of alpha, dim of delta>
+            new ceres::AutoDiffCostFunction<GeometryRegularizationCostFunctor, 1,
+                    NumberOfEigenvectors>(
+                new GeometryRegularizationCostFunctor(lambda, (double)shapeDevEigen(i), i)),
+            nullptr, alpha.data());
+
+    }
+    for (int i = 0; i < NumberOfExpressions; i++) {
+        problem.AddResidualBlock(
+            // <dim of residual, dim of alpha, dim of delta>
+            new ceres::AutoDiffCostFunction<GeometryRegularizationCostFunctor, 1,
+                    NumberOfExpressions>(
+                new GeometryRegularizationCostFunctor(lambda, (double)exprDevEigen(i), i)),
+            nullptr, delta.data());
+        // Q: TODO: Is it a waste here to pass the whole delta?
     }
 
     ceres::Solver::Options options;
