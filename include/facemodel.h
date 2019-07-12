@@ -20,6 +20,9 @@ public:
 
     FaceModel(const std::string& path, int n_eigenvec, int n_exp, int n_vert);
 
+    void forwardPass(const Eigen::VectorXd& alpha, const Eigen::VectorXd& delta,
+                      Eigen::VectorXf& vertices_out);
+
     int synthesizeModel(const Eigen::VectorXf& diff_vertices);
     int writeSynthesizedModel();
 

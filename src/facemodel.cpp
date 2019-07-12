@@ -26,7 +26,6 @@ FaceModel::FaceModel(const std::string &path, int n_eigenvec, int n_exp, int n_v
     exprDevEigen(NumberOfExpressions)
 {
     load(path);
-    loadAverageMesh();
 }
 
 void FaceModel::load(const std::string &path) {
@@ -59,6 +58,13 @@ void FaceModel::load(const std::string &path) {
     delete[] expressionDevCPU;
 }
 
+void FaceModel::forwardPass(const Eigen::VectorXd& alpha,
+                           const Eigen::VectorXd& delta,
+                           Eigen::VectorXf& vertices_out)
+{
+    vertices_out = shapeBasisEigen * alpha.cast<float>() + exprBasisEigen * delta.cast<float>();
+}
+
 int FaceModel::loadAverageMesh() {
     OpenMesh::IO::Options ropt;
 
@@ -89,6 +95,49 @@ int FaceModel::loadAverageMesh() {
 
     // Save synth mesh as average mesh in the beginning.
     m_synth_mesh = m_avg_mesh;
+
+    return 0;
+}
+
+int FaceModel::synthesizeModel(const Eigen::VectorXf& diff_vertices) {
+    FaceMesh synth_mesh = m_avg_mesh;
+
+    size_t i = 0;
+
+    for (FaceMesh::VertexIter v_it = synth_mesh.vertices_begin();
+         v_it != synth_mesh.vertices_end(); ++v_it)
+    {
+      // Add diff_vertives (change in the vertex coordinates based
+      // on the PCA model) to the existing vertices.
+      synth_mesh.set_point( *v_it, synth_mesh.point(*v_it)
+                          + FaceMesh::Point(diff_vertices(i), diff_vertices(i+1),
+                                          diff_vertices(i+2)));
+
+      i += 3;
+    }
+
+    m_synth_mesh = synth_mesh;
+
+    return 0;
+}
+
+int FaceModel::writeSynthesizedModel() {
+    OpenMesh::IO::Options wopt;
+    wopt += OpenMesh::IO::Options::VertexColor;
+
+    try
+    {
+      if (!OpenMesh::IO::write_mesh(m_synth_mesh, FILENAME_OUT_SYNTH_MESH, wopt))
+      {
+        std::cerr << "Cannot write mesh to file '" << FILENAME_OUT_SYNTH_MESH
+                  << "'" << std::endl;
+      }
+    }
+    catch(std::exception& x)
+    {
+      std::cerr << x.what() << std::endl;
+      return 1;
+    }
 
     return 0;
 }
@@ -148,49 +197,6 @@ int FaceModel::convertDeviations(Eigen::VectorXf& devs, int num_dims, float* dev
 {
     for(int i = 0; i < num_dims; i++) {
             devs(i, 0) = devCPU[i];
-    }
-
-    return 0;
-}
-
-int FaceModel::synthesizeModel(const Eigen::VectorXf& diff_vertices) {
-    FaceMesh synth_mesh = m_avg_mesh;
-
-    size_t i = 0;
-
-    for (FaceMesh::VertexIter v_it = synth_mesh.vertices_begin();
-         v_it != synth_mesh.vertices_end(); ++v_it)
-    {
-      // Add diff_vertives (change in the vertex coordinates based
-      // on the PCA model) to the existing vertices.
-      synth_mesh.set_point( *v_it, synth_mesh.point(*v_it)
-                          + FaceMesh::Point(diff_vertices(i), diff_vertices(i+1),
-                                          diff_vertices(i+2)));
-
-      i += 3;
-    }
-
-    m_synth_mesh = synth_mesh;
-
-    return 0;
-}
-
-int FaceModel::writeSynthesizedModel() {
-    OpenMesh::IO::Options wopt;
-    wopt += OpenMesh::IO::Options::VertexColor;
-
-    try
-    {
-      if (!OpenMesh::IO::write_mesh(m_synth_mesh, FILENAME_OUT_SYNTH_MESH, wopt))
-      {
-        std::cerr << "Cannot write mesh to file '" << FILENAME_OUT_SYNTH_MESH
-                  << "'" << std::endl;
-      }
-    }
-    catch(std::exception& x)
-    {
-      std::cerr << x.what() << std::endl;
-      return 1;
     }
 
     return 0;

@@ -410,13 +410,6 @@ void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
 typedef Eigen::DiagonalMatrix<double, NumberOfEigenvectors + NumberOfExpressions> JacobiPrecondMatrix;
 
 
-int forward_pass(const Eigen::MatrixXf& shape_basis, const Eigen::MatrixXf& expr_basis, const Eigen::VectorXd& alpha, const Eigen::VectorXd& delta, Eigen::VectorXf& vertices_out)
-{
-    vertices_out = shape_basis * alpha.cast<float>() + expr_basis * delta.cast<float>();
-	return 0;
-}
-
-
 int get_residuals_current(Eigen::VectorXf& residuals, Eigen::VectorXf& model_data, Eigen::VectorXi& residual_vert_ids)
 {
 	residuals(0) = model_data(50*3+0) - 5;
@@ -565,9 +558,7 @@ int update_params(Eigen::VectorXf& alpha, Eigen::VectorXf& delta, Eigen::VectorX
 
 int cg_solver_helper(Eigen::MatrixXf& A, Eigen::VectorXf& B, Eigen::VectorXf& X);
 
-int run(FaceModel& face_model, const Eigen::MatrixXf& shapeBasisEigen, const Eigen::MatrixXf& exprBasisEigen,
-        const Eigen::VectorXf& shapeDevEigen, const Eigen::VectorXf& exprDevEigen,
-        Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
+int run(FaceModel& face_model, Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
     MyMesh scanned_mesh;
 
     loadScannedMesh(scanned_mesh);
@@ -594,7 +585,8 @@ int run(FaceModel& face_model, const Eigen::MatrixXf& shapeBasisEigen, const Eig
 
         std::cout << "Running ceres: " << std::endl;
         runCeres(face_model.m_synth_mesh, scanned_mesh, indices, matches,
-                 shapeBasisEigen, exprBasisEigen, shapeDevEigen, exprDevEigen,
+                 face_model.shapeBasisEigen, face_model.exprBasisEigen,
+                 face_model.shapeDevEigen, face_model.exprDevEigen,
                  alpha, delta);
 
         std::cout << "Ceres finished: " << std::endl;
@@ -608,13 +600,12 @@ int main()
     Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
 
-    //FaceModelLoader fml(modelPath, NumberOfEigenvectors, NumberOfExpressions, nVertices);
     FaceModel face_model(modelPath, NumberOfEigenvectors, NumberOfExpressions, nVertices);
-    run(face_model, face_model.shapeBasisEigen, face_model.exprBasisEigen, face_model.shapeDevEigen, face_model.shapeDevEigen, alpha, delta);
+    run(face_model, alpha, delta);
 
     Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
 
-    forward_pass(face_model.shapeBasisEigen, face_model.exprBasisEigen, alpha, delta, *vertices_out);
+    face_model.forwardPass(alpha, delta, *vertices_out);
 
     face_model.synthesizeModel(*vertices_out);
 
