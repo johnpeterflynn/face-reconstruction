@@ -558,6 +558,63 @@ int update_params(Eigen::VectorXf& alpha, Eigen::VectorXf& delta, Eigen::VectorX
 
 int cg_solver_helper(Eigen::MatrixXf& A, Eigen::VectorXf& B, Eigen::VectorXf& X);
 
+int optimize() {
+    /*
+        constexpr int nResidualVerts = 1;
+        constexpr int nResidualsPerVert = 3;
+
+        Eigen::VectorXf * residuals = new Eigen::VectorXf(nResidualVerts*nResidualsPerVert);
+
+        Eigen::VectorXi * resudial_vertex_ids = new Eigen::VectorXi(nResidualVerts);
+
+        std::cout << "getting residuals and Jacobian: " << std::endl;
+
+        Eigen::MatrixXf * jacobian = new Eigen::MatrixXf(nResidualVerts*nResidualsPerVert, NumberOfEigenvectors + NumberOfExpressions);
+
+        Eigen::VectorXf * delta_P = new Eigen::VectorXf(NumberOfEigenvectors+ NumberOfExpressions);
+
+        Eigen::VectorXf * resid = new Eigen::VectorXf(NumberOfEigenvectors + NumberOfExpressions);
+
+        Eigen::VectorXf * B = new Eigen::VectorXf(NumberOfEigenvectors + NumberOfExpressions);
+
+        get_residuals_current(*residuals, *vertices_out, *resudial_vertex_ids);
+
+        get_jacobian(*jacobian, *shapeBasisEigen, *exprBasisEigen,*residuals, nResidualsPerVert, nResidualVerts, *resudial_vertex_ids);
+
+        for(int cc1=0; cc1<20; cc1++)
+        {
+
+
+            // Newton method
+
+            forward_pass(*shapeBasisEigen, *exprBasisEigen, *alpha, *delta, *vertices_out);
+
+            get_residuals_current(*residuals, *vertices_out, *resudial_vertex_ids);
+
+            std::cout << "loss: " << residuals->squaredNorm() << std::endl;
+
+            get_jacobian(*jacobian, *shapeBasisEigen, *exprBasisEigen, *residuals, nResidualsPerVert, nResidualVerts, *resudial_vertex_ids);
+
+
+            Eigen::MatrixXf * jacobianT = new Eigen::MatrixXf(NumberOfEigenvectors + NumberOfExpressions, nResidualVerts*nResidualsPerVert);
+
+            Eigen::MatrixXf * jacobianTjacobian = new Eigen::MatrixXf(NumberOfEigenvectors + NumberOfExpressions, NumberOfEigenvectors + NumberOfExpressions);
+
+            *jacobianT = jacobian->transpose();
+            *jacobianTjacobian = *jacobianT * *jacobian; // inefficient
+
+            *B = -1 * (*jacobianT * *residuals);
+
+            conjugateGradientSolver(*jacobianT, *jacobian, *B, *delta_P);
+
+            *resid = *jacobian * *delta_P + *residuals;
+
+            update_params(*alpha, *delta, *delta_P);
+
+        }
+    */
+}
+
 int run(FaceModel& face_model, Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
     MyMesh scanned_mesh;
 
@@ -613,62 +670,6 @@ int main()
     face_model.writeSynthesizedModel();
 
     std::cout << alpha << std::endl;
-/*
-
-	constexpr int nResidualVerts = 1;
-	constexpr int nResidualsPerVert = 3;
-
-	Eigen::VectorXf * residuals = new Eigen::VectorXf(nResidualVerts*nResidualsPerVert);
-
-	Eigen::VectorXi * resudial_vertex_ids = new Eigen::VectorXi(nResidualVerts);
-
-	std::cout << "getting residuals and Jacobian: " << std::endl;
-
-	Eigen::MatrixXf * jacobian = new Eigen::MatrixXf(nResidualVerts*nResidualsPerVert, NumberOfEigenvectors + NumberOfExpressions);
-
-	Eigen::VectorXf * delta_P = new Eigen::VectorXf(NumberOfEigenvectors+ NumberOfExpressions);
-
-	Eigen::VectorXf * resid = new Eigen::VectorXf(NumberOfEigenvectors + NumberOfExpressions);
-
-	Eigen::VectorXf * B = new Eigen::VectorXf(NumberOfEigenvectors + NumberOfExpressions);
-
-	get_residuals_current(*residuals, *vertices_out, *resudial_vertex_ids);
-
-	get_jacobian(*jacobian, *shapeBasisEigen, *exprBasisEigen,*residuals, nResidualsPerVert, nResidualVerts, *resudial_vertex_ids);
-
-	for(int cc1=0; cc1<20; cc1++)
-	{
-
-
-		// Newton method
-		
-		forward_pass(*shapeBasisEigen, *exprBasisEigen, *alpha, *delta, *vertices_out);
-
-		get_residuals_current(*residuals, *vertices_out, *resudial_vertex_ids);
-
-		std::cout << "loss: " << residuals->squaredNorm() << std::endl;
-
-		get_jacobian(*jacobian, *shapeBasisEigen, *exprBasisEigen, *residuals, nResidualsPerVert, nResidualVerts, *resudial_vertex_ids);
-
-
-		Eigen::MatrixXf * jacobianT = new Eigen::MatrixXf(NumberOfEigenvectors + NumberOfExpressions, nResidualVerts*nResidualsPerVert);
-
-		Eigen::MatrixXf * jacobianTjacobian = new Eigen::MatrixXf(NumberOfEigenvectors + NumberOfExpressions, NumberOfEigenvectors + NumberOfExpressions);
-
-		*jacobianT = jacobian->transpose();
-		*jacobianTjacobian = *jacobianT * *jacobian; // inefficient
-
-		*B = -1 * (*jacobianT * *residuals);
-
-		conjugateGradientSolver(*jacobianT, *jacobian, *B, *delta_P);
-
-		*resid = *jacobian * *delta_P + *residuals;
-
-		update_params(*alpha, *delta, *delta_P);
-
-	}
-*/
-	std::cout << "Hello World!\n"; 
 }
 
 
