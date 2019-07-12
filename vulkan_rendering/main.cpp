@@ -7,10 +7,8 @@
 //
 
 #ifdef __has_include                           // Check if __has_include is present
-#  if __has_include(<boost/optional.hpp>)    // Try with an external library
-#    include <boost/optional.hpp>
-#  elif __has_include(<optional>)                // Check for a standard library
-#    include<optional>
+#  if __has_include(<optional>)    // Try with an external library
+#    include <optional>
 #  elif __has_include(<experimental/optional>) // Check for an experimental version
 #    include <experimental/optional>
 #  else                                        // Not found at all
@@ -87,8 +85,8 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 }
 
 struct QueueFamilyIndices {
-    boost::optional<uint32_t> graphicsFamily;
-    boost::optional<uint32_t> presentFamily;
+    std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> presentFamily;
     
     bool isComplete() {
         return graphicsFamily.has_value() && presentFamily.has_value();
