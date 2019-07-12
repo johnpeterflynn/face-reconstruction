@@ -697,19 +697,19 @@ int main()
     LoadVector(filenameStdDevShape, shapeDevCPU, NumberOfEigenvectors);
     LoadVector(filenameStdDevExpression, expressionDevCPU, NumberOfExpressions);
 
-    Eigen::MatrixXf * shapeBasisEigen = new Eigen::MatrixXf(3 * nVertices, NumberOfEigenvectors);
-	Eigen::MatrixXf * exprBasisEigen = new Eigen::MatrixXf(3 * nVertices, NumberOfExpressions);
+    Eigen::MatrixXf shapeBasisEigen(3 * nVertices, NumberOfEigenvectors);
+    Eigen::MatrixXf exprBasisEigen(3 * nVertices, NumberOfExpressions);
 	
-    Eigen::VectorXf * shapeDevEigen = new Eigen::VectorXf(NumberOfEigenvectors);
-    Eigen::VectorXf * exprDevEigen = new Eigen::VectorXf(NumberOfExpressions);
+    Eigen::VectorXf shapeDevEigen(NumberOfEigenvectors);
+    Eigen::VectorXf exprDevEigen(NumberOfExpressions);
 
 	std::cout << "converting the basis: " << std::endl;
 
-	convert_basis(*shapeBasisEigen, nVertices, NumberOfEigenvectors, shapeBasisCPU);
-    convert_basis(*exprBasisEigen, nVertices, NumberOfExpressions, expressionBasisCPU);//shapeBasisCPU); // Q: Should be expressionBasisCPU?
+    convert_basis(shapeBasisEigen, nVertices, NumberOfEigenvectors, shapeBasisCPU);
+    convert_basis(exprBasisEigen, nVertices, NumberOfExpressions, expressionBasisCPU);
 
-    convert_deviations(*shapeDevEigen, NumberOfEigenvectors, shapeDevCPU);
-    convert_deviations(*exprDevEigen, NumberOfExpressions, expressionDevCPU);
+    convert_deviations(shapeDevEigen, NumberOfEigenvectors, shapeDevCPU);
+    convert_deviations(exprDevEigen, NumberOfExpressions, expressionDevCPU);
 
     //Eigen::VectorXf * alpha = new Eigen::VectorXf(NumberOfEigenvectors);
     //Eigen::VectorXf * delta = new Eigen::VectorXf(NumberOfExpressions);
@@ -722,7 +722,7 @@ int main()
 
     //std::cout << "forward pass: " << std::endl;
 
-    run(*shapeBasisEigen, *exprBasisEigen, *shapeDevEigen, *shapeDevEigen, alpha, delta);
+    run(shapeBasisEigen, exprBasisEigen, shapeDevEigen, shapeDevEigen, alpha, delta);
 
     std::cout << alpha << std::endl;
 /*
