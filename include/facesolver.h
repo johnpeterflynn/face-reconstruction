@@ -13,7 +13,7 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 
 class FaceSolver {
 public:
-    FaceSolver();
+    FaceSolver(double geo_regularization, int num_iterations);
 
     void solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta);
 
@@ -33,6 +33,8 @@ private:
                   Eigen::VectorXd& alpha, Eigen::VectorXd& delta);
 
 private:
+    double m_geo_regularization;
+    int m_num_iterations;
 };
 
 #endif // FACESOLVER_H

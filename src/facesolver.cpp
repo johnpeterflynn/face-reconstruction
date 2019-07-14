@@ -58,7 +58,9 @@ private:
     const double stddev;
 };
 
-FaceSolver::FaceSolver()
+FaceSolver::FaceSolver(double geo_regularization, int num_iterations) :
+    m_geo_regularization(geo_regularization),
+    m_num_iterations(num_iterations)
 {
 }
 
@@ -123,8 +125,6 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         //std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
     }
 
-    // Add regularization for alpha
-    double lambda = 0.000005; // regularization param
     // Q: TODO: Is it a waste here to pass the whole alpha and delta? Would it
     // be better to make one large residual for alpha and delta?
     for (int i = 0; i < NumberOfEigenvectors; i++) {
@@ -132,7 +132,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
             // <dim of residual, dim of alpha, dim of delta>
             new ceres::AutoDiffCostFunction<GeometryRegularizationCostFunctor, 1,
                     NumberOfEigenvectors>(
-                new GeometryRegularizationCostFunctor(lambda, (double)shapeDevEigen(i), i)),
+                new GeometryRegularizationCostFunctor(m_geo_regularization, (double)shapeDevEigen(i), i)),
             nullptr, alpha.data());
 
     }
@@ -141,7 +141,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
             // <dim of residual, dim of alpha, dim of delta>
             new ceres::AutoDiffCostFunction<GeometryRegularizationCostFunctor, 1,
                     NumberOfExpressions>(
-                new GeometryRegularizationCostFunctor(lambda, (double)exprDevEigen(i), i)),
+                new GeometryRegularizationCostFunctor(m_geo_regularization, (double)exprDevEigen(i), i)),
             nullptr, delta.data());
         // Q: TODO: Is it a waste here to pass the whole delta?
     }
@@ -208,7 +208,7 @@ void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorX
     Eigen::MatrixXi indices;
 
     std::cout << "Optimization starting: " << std::endl;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < m_num_iterations; i++) {
         knn_model_to_scan(face_model, face_scan.m_scanned_mesh, K, indices);
 
         std::map<int, int> match_indices = face_scan.getMatchIndices();

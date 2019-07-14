@@ -356,7 +356,7 @@ int main()
 
     FaceModel face_model(MODEL_PATH);
     RGBDScan face_scan(FILENAME_SCANNED_MESH);
-    FaceSolver face_solver;
+    FaceSolver face_solver(0.000005, 2);
 
     face_scan.loadMatchIndices(); // From somewhere
 
