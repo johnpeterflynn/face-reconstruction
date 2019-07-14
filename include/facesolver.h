@@ -13,7 +13,7 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 
 class FaceSolver {
 public:
-    FaceSolver(int n_eigenvecs, int n_expr, int n_vertices);
+    FaceSolver();
 
     void solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta);
 
@@ -33,9 +33,6 @@ private:
                   Eigen::VectorXd& alpha, Eigen::VectorXd& delta);
 
 private:
-    //const int NumberOfEigenvectors;
-    //const int NumberOfExpressions;
-    //const int nVertices;
 };
 
 #endif // FACESOLVER_H

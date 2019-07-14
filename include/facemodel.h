@@ -18,7 +18,7 @@ class FaceModel
 public:
     typedef OpenMesh::TriMesh_ArrayKernelT<> FaceMesh;
 
-    FaceModel(const std::string& path, int n_eigenvec, int n_exp, int n_vert);
+    FaceModel(const std::string& path);
 
     void forwardPass(const Eigen::VectorXd& alpha, const Eigen::VectorXd& delta,
                       Eigen::VectorXf& vertices_out);
@@ -39,10 +39,6 @@ private:
 public:
     FaceMesh m_avg_mesh;
     FaceMesh m_synth_mesh;
-
-    const int NumberOfEigenvectors;
-    const int NumberOfExpressions;
-    const int nVertices;
 
     Eigen::MatrixXf shapeBasisEigen;
     Eigen::MatrixXf exprBasisEigen;

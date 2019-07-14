@@ -7,20 +7,11 @@
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Tools/Utils/getopt.h>
 
-
-constexpr const char* FILENAME_AVG_MESH = "../models/averageMesh.off";
-constexpr const char* FILENAME_OUT_SYNTH_MESH = "synthesizedMesh.off";
-
-constexpr const char* filenameBasisShape = "ShapeBasis.matrix";
-constexpr const char* filenameBasisExpression = "ExpressionBasis.matrix";
-constexpr const char* filenameStdDevShape = "StandardDeviationShape.vec";
-constexpr const char* filenameStdDevExpression = "StandardDeviationExpression.vec";
+#include"config.h"
 
 
-FaceModel::FaceModel(const std::string &path, int n_eigenvec, int n_exp, int n_vert)
-    : NumberOfEigenvectors(n_eigenvec), NumberOfExpressions(n_exp),
-      nVertices(n_vert),
-    shapeBasisEigen(3 * nVertices, NumberOfEigenvectors),
+FaceModel::FaceModel(const std::string &path)
+    : shapeBasisEigen(3 * nVertices, NumberOfEigenvectors),
     exprBasisEigen(3 * nVertices, NumberOfExpressions),
     shapeDevEigen(NumberOfEigenvectors),
     exprDevEigen(NumberOfExpressions)

@@ -3,17 +3,10 @@
 #include <ceres/ceres.h>
 #include "nabo/nabo.h"
 
+#include "config.h"
 
-constexpr int NumberOfEigenvectors = 160;
-constexpr int NumberOfExpressions = 76;
-constexpr int nVertices = 53490;
-
-FaceSolver::FaceSolver(int n_eigenvecs, int n_expr, int n_vertices)// :
-    //NumberOfEigenvectors(n_eigenvecs),
-    //NumberOfExpressions(n_expr),
-    //nVertices(n_vertices)
+FaceSolver::FaceSolver()
 {
-
 }
 
 void FaceSolver::calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,

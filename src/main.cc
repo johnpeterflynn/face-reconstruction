@@ -22,11 +22,8 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 #include "facemodel.h"
 #include "rgbdscan.h"
 #include "facesolver.h"
+#include"config.h"
 
-constexpr int NumberOfEigenvectors = 160;
-constexpr int NumberOfExpressions = 76;
-constexpr int nVertices = 53490;
-constexpr const char* modelPath = "../models";
 
 int surfaceNormalsTest(void)
 {
@@ -82,8 +79,7 @@ int surfaceNormalsTest(void)
   return 0;
 }
 
-constexpr const char* FILENAME_SCANNED_MESH = "../testData/fakekinectdata.off";
-//"../testData/kinectdata.off";
+
 
 
 
@@ -367,11 +363,11 @@ int main()
     Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
 
-    FaceModel face_model(modelPath, NumberOfEigenvectors, NumberOfExpressions, nVertices);
+    FaceModel face_model(MODEL_PATH);
     RGBDScan face_scan(FILENAME_SCANNED_MESH);
     face_scan.loadMatchIndices(); // From somewhere
 
-    FaceSolver face_solver(NumberOfEigenvectors, NumberOfExpressions, nVertices);
+    FaceSolver face_solver;
 
     face_solver.solve(face_model, face_scan, alpha, delta);
 
