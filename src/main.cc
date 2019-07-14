@@ -23,6 +23,7 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 #include "nabo/nabo.h"
 
 #include "facemodel.h"
+#include "rgbdscan.h"
 
 constexpr int NumberOfEigenvectors = 160;
 constexpr int NumberOfExpressions = 76;
@@ -103,28 +104,7 @@ void calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
 constexpr const char* FILENAME_SCANNED_MESH = "../testData/fakekinectdata.off";
 //"../testData/kinectdata.off";
 
-int loadScannedMesh(MyMesh& scanned_mesh) {
-    OpenMesh::IO::Options ropt;
 
-    // Set input options
-    ropt += OpenMesh::IO::Options::VertexColor;
-
-    scanned_mesh.request_vertex_colors();
-
-    // assure we have vertex normals
-    if (!scanned_mesh.has_vertex_colors())
-    {
-      std::cerr << "ERROR: Standard vertex property 'Colors' not available for average mesh!\n";
-      return 1;
-    }
-
-    if (!OpenMesh::IO::read_mesh(scanned_mesh, FILENAME_SCANNED_MESH, ropt)) {
-        std::cerr << "ERROR: Could not load " << FILENAME_SCANNED_MESH << "\n";
-        return 1;
-    }
-
-    return 0;
-}
 
 void projectionTest(const MyMesh& mesh, std::string s, int corr_index,
                     Eigen::MatrixXf& M_out) {
@@ -615,24 +595,15 @@ int optimize() {
     */
 }
 
-int run(FaceModel& face_model, Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
-    MyMesh scanned_mesh;
-
-    loadScannedMesh(scanned_mesh);
-
+int run(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
     const int K = 1;
     Eigen::MatrixXi indices;
 
     std::cout << "Optimization starting: " << std::endl;
     for (int i = 0; i < 3; i++) {
-        knn_test(face_model, scanned_mesh, K, indices);
+        knn_test(face_model, face_scan.m_scanned_mesh, K, indices);
 
-        std::map<int, int> match_indices;
-        match_indices[2000] = 2000;
-        match_indices[10000] = 10000;
-        match_indices[25000] = 25000;
-        match_indices[30000] = 30000;
-        match_indices[50000] = 50000;
+        std::map<int, int> match_indices = face_scan.getMatchIndices();
 
         std::set<int> matches;
         for (auto entry : match_indices) {
@@ -641,7 +612,7 @@ int run(FaceModel& face_model, Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
         }
 
         std::cout << "Running ceres: " << std::endl;
-        runCeres(face_model.m_synth_mesh, scanned_mesh, indices, matches,
+        runCeres(face_model.m_synth_mesh, face_scan.m_scanned_mesh, indices, matches,
                  face_model.shapeBasisEigen, face_model.exprBasisEigen,
                  face_model.shapeDevEigen, face_model.exprDevEigen,
                  alpha, delta);
@@ -658,7 +629,10 @@ int main()
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
 
     FaceModel face_model(modelPath, NumberOfEigenvectors, NumberOfExpressions, nVertices);
-    run(face_model, alpha, delta);
+    RGBDScan face_scan(FILENAME_SCANNED_MESH);
+    face_scan.loadMatchIndices(); // From somewhere
+
+    run(face_model, face_scan, alpha, delta);
 
     Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
 

@@ -31,7 +31,8 @@ find_package(nabo)
 
 set(SOURCES
     src/main.cc
-    src/facemodel.cpp)
+    src/facemodel.cpp
+    src/rgbdscan.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 target_link_libraries(${PROJECT_NAME} OpenMeshCore ${OpenCV_LIBS} nabo ceres)
