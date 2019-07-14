@@ -5,6 +5,10 @@ constexpr int NumberOfEigenvectors = 160;
 constexpr int NumberOfExpressions = 76;
 constexpr int nVertices = 53490;
 
+// Number of parameters in alpha and delta to solve for
+constexpr int NUM_PARAMS_ALPHA = 10;
+constexpr int NUM_PARAMS_DELTA = 10;
+
 constexpr const char* MODEL_PATH = "../models";
 constexpr const char* FILENAME_SCANNED_MESH = "../testData/fakekinectdata.off";
 

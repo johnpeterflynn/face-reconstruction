@@ -5,12 +5,13 @@
 
 #include "config.h"
 
+
 struct ReconstructionCostFunctor {
     //EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ReconstructionCostFunctor(const Eigen::Matrix<double, 3, 1>& v_face_avg_in,
                             const Eigen::Matrix<double, 3, 1>& v_scan_in,
-                            const Eigen::Matrix<double, 3, NumberOfEigenvectors>& shapeBasisEigenRow_in,
-                            const Eigen::Matrix<double, 3, NumberOfExpressions>& exprBasisEigenRow_in,
+                            const Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA>& shapeBasisEigenRow_in,
+                            const Eigen::Matrix<double, 3, NUM_PARAMS_DELTA>& exprBasisEigenRow_in,
                             double weight_in = 1.0)
       : v_face_avg(v_face_avg_in), v_scan(v_scan_in),
         shapeBasisEigenRow(shapeBasisEigenRow_in),
@@ -20,8 +21,8 @@ struct ReconstructionCostFunctor {
   bool operator()(T const* const salpha,/* T const* const sdelta,*/
                   /*T const* const sangles, T const* const st,*/
                   T* sresiduals) const {
-    Eigen::Map<Eigen::Matrix<T, NumberOfEigenvectors, 1> const> const alpha(salpha);
-    //Eigen::Map<Eigen::Matrix<T, NumberOfExpressions, 1> const> const delta(sdelta);
+    Eigen::Map<Eigen::Matrix<T, NUM_PARAMS_ALPHA, 1> const> const alpha(salpha);
+    //Eigen::Map<Eigen::Matrix<T, NUM_PARAMS_DELTA, 1> const> const delta(sdelta);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(sresiduals);
 
     residuals = sqrt(T(weight)) * (v_scan - (v_face_avg + shapeBasisEigenRow * alpha /*+ exprBasisEigenRow * delta*/));
@@ -33,8 +34,8 @@ struct ReconstructionCostFunctor {
   const Eigen::Matrix<double, 3, 1> v_scan;
 
   // TODO: Again, these are copied so need another way.
-  const Eigen::Matrix<double, 3, NumberOfEigenvectors> shapeBasisEigenRow;
-  const Eigen::Matrix<double, 3, NumberOfExpressions> exprBasisEigenRow;
+  const Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA> shapeBasisEigenRow;
+  const Eigen::Matrix<double, 3, NUM_PARAMS_DELTA> exprBasisEigenRow;
 
   const double weight; // Weight of residual
 };
@@ -83,11 +84,11 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
     {
         // Get index of average face vertex
         int v_idx = v_it->idx();
-
-        if ((v_idx % 20) != 0) {
+/*
+        if ((v_idx % 50) != 0) {
             continue;
         }
-
+*/
 
         // Constants in optimization
 
@@ -101,10 +102,10 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         Eigen::Vector3d v3_scan_nn(p3_scan_nn[0], p3_scan_nn[1], p3_scan_nn[2]);
 
         // TODO:These are being copied but pointers should be used instead
-        Eigen::Matrix<double, 3, NumberOfEigenvectors> shapeBasisEigenRows
-                = shapeBasisEigen.block<3, NumberOfEigenvectors>(3 * v_idx, 0).cast<double>();
-        Eigen::Matrix<double, 3, NumberOfExpressions> exprBasisEigenRows
-                = exprBasisEigen.block<3, NumberOfExpressions>(3 * v_idx, 0).cast<double>();
+        Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA> shapeBasisEigenRows
+                = shapeBasisEigen.block<3, NUM_PARAMS_ALPHA>(3 * v_idx, 0).cast<double>();
+        Eigen::Matrix<double, 3, NUM_PARAMS_DELTA> exprBasisEigenRows
+                = exprBasisEigen.block<3, NUM_PARAMS_DELTA>(3 * v_idx, 0).cast<double>();
 
         // Add more weight to sparse correspondences
         double weight = 1.0;
@@ -116,7 +117,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         problem.AddResidualBlock(
             // <dim of residual, dim of alpha, dim of delta>
             new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 3,
-                    NumberOfEigenvectors/*, NumberOfExpressions*/>(
+                    NUM_PARAMS_ALPHA/*, NUM_PARAMS_DELTA*/>(
                 new ReconstructionCostFunctor(v3_face_avg, v3_scan_nn,
                                               shapeBasisEigenRows,
                                               exprBasisEigenRows, weight)),
@@ -127,25 +128,27 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
 
     // Q: TODO: Is it a waste here to pass the whole alpha and delta? Would it
     // be better to make one large residual for alpha and delta?
-    for (int i = 0; i < NumberOfEigenvectors; i++) {
+    for (int i = 0; i < NUM_PARAMS_ALPHA; i++) {
         problem.AddResidualBlock(
             // <dim of residual, dim of alpha, dim of delta>
             new ceres::AutoDiffCostFunction<GeometryRegularizationCostFunctor, 1,
-                    NumberOfEigenvectors>(
+                    NUM_PARAMS_ALPHA>(
                 new GeometryRegularizationCostFunctor(m_geo_regularization, (double)shapeDevEigen(i), i)),
             nullptr, alpha.data());
 
     }
-    for (int i = 0; i < NumberOfExpressions; i++) {
+
+    /*
+    for (int i = 0; i < NUM_PARAMS_DELTA; i++) {
         problem.AddResidualBlock(
             // <dim of residual, dim of alpha, dim of delta>
             new ceres::AutoDiffCostFunction<GeometryRegularizationCostFunctor, 1,
-                    NumberOfExpressions>(
+                    NUM_PARAMS_DELTA>(
                 new GeometryRegularizationCostFunctor(m_geo_regularization, (double)exprDevEigen(i), i)),
             nullptr, delta.data());
         // Q: TODO: Is it a waste here to pass the whole delta?
     }
-
+*/
     ceres::Solver::Options options;
     options.max_num_iterations = 1;
     options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;//DENSE_QR;
