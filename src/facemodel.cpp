@@ -32,7 +32,7 @@ void FaceModel::load(const std::string &path) {
     std::string pathBasisShape = path + "/" + filenameBasisShape;
     std::string pathBasisExpression = path + "/" + filenameBasisExpression;
     std::string pathStdDevShape = path + "/" + filenameStdDevShape;
-    std::string pathStdDevExpression = path + "/" + filenameBasisExpression;
+    std::string pathStdDevExpression = path + "/" + filenameStdDevExpression;
 
     auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
     auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];
