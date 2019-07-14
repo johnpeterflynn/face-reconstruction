@@ -5,94 +5,6 @@
 
 #include "config.h"
 
-FaceSolver::FaceSolver()
-{
-}
-
-void FaceSolver::calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
-                  Eigen::MatrixXi& indices)
-{
-    const int K = indices.rows();
-
-    Nabo::NNSearchF* nns = Nabo::NNSearchF::createKDTreeLinearHeap(M);
-    //Eigen::VectorXi indices(K);
-    Eigen::MatrixXf dists2(K, q.cols());
-
-    // ALLOW_SELF_MATCH appears to be necessary to match vertices that are
-    // exactly the same.
-    nns->knn(q, indices, dists2, K,  0, Nabo::NNSearchF::ALLOW_SELF_MATCH);
-    delete nns;
-
-    return;
-}
-
-int FaceSolver::knn_test(const FaceModel& face_model, const MyMesh& scanned_mesh, int K, Eigen::MatrixXi& indices) {
-    Eigen::MatrixXf FM(3, face_model.m_synth_mesh.n_vertices());
-    Eigen::MatrixXf SM(3, scanned_mesh.n_vertices());
-
-    meshToMatrix(face_model.m_synth_mesh, FM);
-    meshToMatrix(scanned_mesh, SM);
-/*
-    std::cout << "Num FM rows, cols: " << FM.rows() << ", " << FM.cols() << "\n";
-    std::cout << "Num SM rows, cols: " << SM.rows() << ", " << SM.cols() << "\n";
-
-    // Sample the matrices to see if they look okay.
-    std::cout << "FM first 10 values\n";
-    std::cout << FM.block<3,10>(0,0) << "\n";
-    std::cout << "SM first 10 values\n";
-    std::cout << SM.block<3,10>(0,0) << "\n";
-*/
-    std::cout << "Starting KNN\n";
-
-    // Indices for  for each column vector in FN
-    //Eigen::MatrixXi indices;
-    indices.resize(K, FM.cols());
-
-    calculate_knn(SM, FM, indices);
-
-    std::cout << "Finished KNN\n";
-
-    //std::cout << "incides:\n";
-    //std::cout << indices << "\n";
-/*
-    for (int i = 0; i < indices.cols(); i++) {
-        std::cout << "Face " << i << ": " << FM.col(i).transpose() << std::endl;
-        std::cout << "Scan " << indices(0,i) << ": " << SM.col(indices(0,i)).transpose() << std::endl;
-    }
-    */
-
-/*
-    std::cout << "Writing results to image\n";
-
-    //## Visualize the projections and nearest neighbors
-    const unsigned int IMG_WIDTH = 640;
-    const unsigned int IMG_HEIGHT = 480;
-
-    cv::Mat img(IMG_HEIGHT, IMG_WIDTH, CV_8UC3, cv::Scalar(0, 0, 0));
-
-    writeMatrixToImg(FM, img, cv::Vec3b(0, 0, 255));
-
-    for (int index = 0; index < all_indices.size(); index++) {
-      Eigen::Vector2f v2 = SM_proj.col(index);
-      img.at<cv::Vec3b>(cv::Point(round(v2(0)),round(v2(1)))) = cv::Vec3b(0, 255, 0);
-    }
-
-    cv::imwrite( "./images/modeltest.jpg", img);
-    //##
-    */
-}
-
-void FaceSolver::meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) {
-    for (MyMesh::VertexIter v_it = mesh.vertices_begin();
-         v_it != mesh.vertices_end(); ++v_it)
-    {
-      MyMesh::Point p3 = mesh.point(*v_it);
-      Eigen::Vector3f v3(p3[0], p3[1], p3[2]);
-
-      M_out.col(v_it->idx()) = v3;
-    }
-}
-
 struct ReconstructionCostFunctor {
     //EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ReconstructionCostFunctor(const Eigen::Matrix<double, 3, 1>& v_face_avg_in,
@@ -145,6 +57,10 @@ private:
     const int index;
     const double stddev;
 };
+
+FaceSolver::FaceSolver()
+{
+}
 
 void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
               const Eigen::MatrixXi& indices,
@@ -242,16 +158,62 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
     std::cout << summary.FullReport() << std::endl;
 }
 
+void FaceSolver::calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
+                  Eigen::MatrixXi& indices)
+{
+    const int K = indices.rows();
+
+    Nabo::NNSearchF* nns = Nabo::NNSearchF::createKDTreeLinearHeap(M);
+    //Eigen::VectorXi indices(K);
+    Eigen::MatrixXf dists2(K, q.cols());
+
+    // ALLOW_SELF_MATCH appears to be necessary to match vertices that are
+    // exactly the same.
+    nns->knn(q, indices, dists2, K,  0, Nabo::NNSearchF::ALLOW_SELF_MATCH);
+    delete nns;
+
+    return;
+}
+
+int FaceSolver::knn_model_to_scan(const FaceModel& face_model, const MyMesh& scanned_mesh, int K, Eigen::MatrixXi& indices) {
+    Eigen::MatrixXf FM(3, face_model.m_synth_mesh.n_vertices());
+    Eigen::MatrixXf SM(3, scanned_mesh.n_vertices());
+
+    meshToMatrix(face_model.m_synth_mesh, FM);
+    meshToMatrix(scanned_mesh, SM);
+
+    std::cout << "Starting KNN\n";
+
+    // Indices for  for each column vector in FN
+    indices.resize(K, FM.cols());
+
+    calculate_knn(SM, FM, indices);
+
+    std::cout << "Finished KNN\n";
+}
+
+void FaceSolver::meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) {
+    for (MyMesh::VertexIter v_it = mesh.vertices_begin();
+         v_it != mesh.vertices_end(); ++v_it)
+    {
+      MyMesh::Point p3 = mesh.point(*v_it);
+      Eigen::Vector3f v3(p3[0], p3[1], p3[2]);
+
+      M_out.col(v_it->idx()) = v3;
+    }
+}
+
 void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
     const int K = 1;
     Eigen::MatrixXi indices;
 
     std::cout << "Optimization starting: " << std::endl;
     for (int i = 0; i < 3; i++) {
-        knn_test(face_model, face_scan.m_scanned_mesh, K, indices);
+        knn_model_to_scan(face_model, face_scan.m_scanned_mesh, K, indices);
 
         std::map<int, int> match_indices = face_scan.getMatchIndices();
 
+        // Replace KNN mathes with manually selected matches
         std::set<int> matches;
         for (auto entry : match_indices) {
             matches.insert(entry.first);

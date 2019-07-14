@@ -9,15 +9,11 @@
 #include <vector>
 
 //#include <opencv2/core/core.hpp>
-//#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
+//#include <opencv2/highgui/highgui.hpp>
 
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
-//typedef OpenMesh::PolyMesh_ArrayKernelT<>  MyPolyMesh;
-#include <OpenMesh/Tools/Utils/getopt.h>
 
 #include "facemodel.h"
 #include "rgbdscan.h"
@@ -134,6 +130,7 @@ void projectionTest(const MyMesh& mesh, std::string s, int corr_index,
     //cv::imwrite( "./images/" + s + ".jpg", M);
 }
 
+/*
 void writeMatrixToImg(const Eigen::MatrixXf& matrix, cv::Mat& img,
                  cv::Vec3b vcolor) {
     //if (0 <= v2(0) && v2(0) < IMG_WIDTH && 0 <= v2(1) && v2(1) < IMG_HEIGHT) {
@@ -143,13 +140,7 @@ void writeMatrixToImg(const Eigen::MatrixXf& matrix, cv::Mat& img,
     }
     //}
 }
-
-//-- BEGIN CERES STUFF
-
-//-- END CERES STUFF
-
-
-
+*/
 typedef Eigen::DiagonalMatrix<double, NumberOfEigenvectors + NumberOfExpressions> JacobiPrecondMatrix;
 
 
@@ -365,21 +356,21 @@ int main()
 
     FaceModel face_model(MODEL_PATH);
     RGBDScan face_scan(FILENAME_SCANNED_MESH);
-    face_scan.loadMatchIndices(); // From somewhere
-
     FaceSolver face_solver;
+
+    face_scan.loadMatchIndices(); // From somewhere
 
     face_solver.solve(face_model, face_scan, alpha, delta);
 
-    Eigen::VectorXf * vertices_out = new Eigen::VectorXf(3 * nVertices);
+    Eigen::VectorXf vertices_out(3 * nVertices);
 
-    face_model.forwardPass(alpha, delta, *vertices_out);
-
-    face_model.synthesizeModel(*vertices_out);
+    face_model.forwardPass(alpha, delta, vertices_out);
+    face_model.synthesizeModel(vertices_out);
 
     std::cout << "Writing synthesized model to file\n";
     face_model.writeSynthesizedModel();
 
+    // Print alpha (geometry parameter we solved for)
     std::cout << alpha << std::endl;
 }
 
