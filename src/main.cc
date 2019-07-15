@@ -349,6 +349,23 @@ int optimize() {
     */
 }
 
+Sophus::SE3d createTransformTest() {
+    Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
+
+    Eigen::Matrix3d m;
+    m = Eigen::AngleAxisd(M_PI/2, Eigen::Vector3d::UnitX())
+        * Eigen::AngleAxisd(M_PI/4, Eigen::Vector3d::UnitY())
+        * Eigen::AngleAxisd(-M_PI/3, Eigen::Vector3d::UnitZ());
+
+    transform.block<3, 3>(0, 0) = m;
+    transform.block<3, 1>(0, 3) = Eigen::Vector3d(0.5, 0.1, 0.1);
+
+    Sophus::SE3d T_xy(transform);
+
+    return T_xy;
+}
+
+
 int main()
 {
     Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
