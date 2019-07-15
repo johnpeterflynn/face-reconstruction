@@ -354,13 +354,15 @@ int main()
     Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
 
+    Sophus::SE3d T_xy;
+
     FaceModel face_model(MODEL_PATH);
     RGBDScan face_scan(FILENAME_SCANNED_MESH);
     FaceSolver face_solver(0.000005, 2);
 
     face_scan.loadMatchIndices(); // From somewhere
 
-    face_solver.solve(face_model, face_scan, alpha, delta);
+    face_solver.solve(face_model, face_scan, alpha, delta, T_xy);
 
     Eigen::VectorXf vertices_out(3 * nVertices);
 
@@ -372,6 +374,8 @@ int main()
 
     // Print alpha (geometry parameter we solved for)
     std::cout << alpha << std::endl;
+
+    std::cout << T_xy.matrix() << std::endl;
 }
 
 

@@ -7,6 +7,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 add_definitions(-DPROJECT_DIR="${PROJECT_SOURCE_DIR}")
 
 include_directories(include)
+include_directories(thirdparty/Sophus)
 
 # Eigen
 find_package(Eigen3 REQUIRED)

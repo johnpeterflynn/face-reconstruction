@@ -3,11 +3,12 @@
 #include <ceres/ceres.h>
 #include "nabo/nabo.h"
 
+#include "local_parameterization_se3.hpp"
 #include "config.h"
 
 
 struct ReconstructionCostFunctor {
-    //EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ReconstructionCostFunctor(const Eigen::Matrix<double, 3, 1>& v_face_avg_in,
                             const Eigen::Matrix<double, 3, 1>& v_scan_in,
                             const Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA>& shapeBasisEigenRow_in,
@@ -19,13 +20,19 @@ struct ReconstructionCostFunctor {
 
   template <class T>
   bool operator()(T const* const salpha,/* T const* const sdelta,*/
-                  /*T const* const sangles, T const* const st,*/
+                  T const* const sT_xy,
                   T* sresiduals) const {
     Eigen::Map<Eigen::Matrix<T, NUM_PARAMS_ALPHA, 1> const> const alpha(salpha);
     //Eigen::Map<Eigen::Matrix<T, NUM_PARAMS_DELTA, 1> const> const delta(sdelta);
+    Eigen::Map<Sophus::SE3<T> const> const T_xy(sT_xy);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(sresiduals);
 
-    residuals = sqrt(T(weight)) * (v_scan - (v_face_avg + shapeBasisEigenRow * alpha /*+ exprBasisEigenRow * delta*/));
+    Eigen::Matrix<T, 3, 1> v_model =
+            (v_face_avg.cast<T>() + shapeBasisEigenRow.cast<T>() * alpha /*+ exprBasisEigenRow.cast<T>() * delta*/);
+
+    Eigen::Matrix<T, 3, 1> v_scan_est = T_xy * v_model;
+
+    residuals = sqrt(T(weight)) * (v_scan.cast<T>() - v_scan_est);
 
     return true;
   }
@@ -72,12 +79,17 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
               const Eigen::MatrixXf& exprBasisEigen,
               const Eigen::VectorXf& shapeDevEigen,
               const Eigen::VectorXf& exprDevEigen,
-              Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
+              Eigen::VectorXd& alpha, Eigen::VectorXd& delta,
+              Sophus::SE3d& T_xy) {
     ceres::Problem problem;
 
     // Model transformation
     //Eigen::Matrix3f R;
     //Eigen::Vector3f t;
+
+    problem.AddParameterBlock(T_xy.data(),
+                              Sophus::SE3d::num_parameters,
+                              new Sophus::test::LocalParameterizationSE3);
 
     for (MyMesh::VertexIter v_it = avg_face_mesh.vertices_begin();
          v_it != avg_face_mesh.vertices_end(); ++v_it)
@@ -117,11 +129,12 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         problem.AddResidualBlock(
             // <dim of residual, dim of alpha, dim of delta>
             new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 3,
-                    NUM_PARAMS_ALPHA/*, NUM_PARAMS_DELTA*/>(
+                    NUM_PARAMS_ALPHA/*, NUM_PARAMS_DELTA*/,
+                    Sophus::SE3d::num_parameters>(
                 new ReconstructionCostFunctor(v3_face_avg, v3_scan_nn,
                                               shapeBasisEigenRows,
                                               exprBasisEigenRows, weight)),
-            nullptr, alpha.data()/*, delta.data()*/);
+            nullptr, alpha.data()/*, delta.data()*/, T_xy.data());
 
         //std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
     }
@@ -206,7 +219,9 @@ void FaceSolver::meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) {
     }
 }
 
-void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta) {
+void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan,
+                       Eigen::VectorXd& alpha, Eigen::VectorXd& delta,
+                       Sophus::SE3d& T_xy) {
     const int K = 1;
     Eigen::MatrixXi indices;
 
@@ -227,7 +242,7 @@ void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorX
         runCeres(face_model.m_synth_mesh, face_scan.m_scanned_mesh, indices, matches,
                  face_model.shapeBasisEigen, face_model.exprBasisEigen,
                  face_model.shapeDevEigen, face_model.exprDevEigen,
-                 alpha, delta);
+                 alpha, delta, T_xy);
 
         std::cout << "Ceres finished: " << std::endl;
     }

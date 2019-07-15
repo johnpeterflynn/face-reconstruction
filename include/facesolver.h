@@ -5,6 +5,7 @@
 #include <set>
 
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
+#include <sophus/se3.hpp>
 
 #include "facemodel.h"
 #include "rgbdscan.h"
@@ -15,7 +16,7 @@ class FaceSolver {
 public:
     FaceSolver(double geo_regularization, int num_iterations);
 
-    void solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta);
+    void solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta, Sophus::SE3d& T_xy);
 
 private:
     void calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
@@ -30,7 +31,8 @@ private:
                   const Eigen::MatrixXf& exprBasisEigen,
                   const Eigen::VectorXf& shapeDevEigen,
                   const Eigen::VectorXf& exprDevEigen,
-                  Eigen::VectorXd& alpha, Eigen::VectorXd& delta);
+                  Eigen::VectorXd& alpha, Eigen::VectorXd& delta,
+                  Sophus::SE3d& T_xy);
 
 private:
     double m_geo_regularization;
