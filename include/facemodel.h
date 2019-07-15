@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
+#include <sophus/se3.hpp>
 
 static constexpr float SCALE_AVG_MESH = 1.0 / 1000000.0;
 
@@ -21,9 +22,11 @@ public:
     FaceModel(const std::string& path);
 
     void forwardPass(const Eigen::VectorXd& alpha, const Eigen::VectorXd& delta,
+                     const Sophus::SE3d& T_xy,
                       Eigen::VectorXf& vertices_out);
 
-    int synthesizeModel(const Eigen::VectorXf& diff_vertices);
+    int synthesizeModel(const Eigen::VectorXf& diff_vertices,
+                        const Sophus::SE3d& T_xy);
     int writeSynthesizedModel();
 
 private:

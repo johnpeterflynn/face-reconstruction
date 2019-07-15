@@ -51,6 +51,7 @@ void FaceModel::load(const std::string &path) {
 
 void FaceModel::forwardPass(const Eigen::VectorXd& alpha,
                            const Eigen::VectorXd& delta,
+                           const Sophus::SE3d& T_xy,
                            Eigen::VectorXf& vertices_out)
 {
     vertices_out = shapeBasisEigen * alpha.cast<float>() + exprBasisEigen * delta.cast<float>();
@@ -90,7 +91,8 @@ int FaceModel::loadAverageMesh() {
     return 0;
 }
 
-int FaceModel::synthesizeModel(const Eigen::VectorXf& diff_vertices) {
+int FaceModel::synthesizeModel(const Eigen::VectorXf& diff_vertices,
+                               const Sophus::SE3d& T_xy) {
     FaceMesh synth_mesh = m_avg_mesh;
 
     size_t i = 0;
@@ -98,11 +100,18 @@ int FaceModel::synthesizeModel(const Eigen::VectorXf& diff_vertices) {
     for (FaceMesh::VertexIter v_it = synth_mesh.vertices_begin();
          v_it != synth_mesh.vertices_end(); ++v_it)
     {
+      FaceMesh::Point point = synth_mesh.point(*v_it);
+      Eigen::Vector3d point_prime_eigen(point[0] + diff_vertices(i),
+                                        point[1] + diff_vertices(i+1),
+                                        point[2] + diff_vertices(i+2));
+
+      Eigen::Vector3d point_trans_eigen = T_xy * point_prime_eigen;
+
       // Add diff_vertives (change in the vertex coordinates based
       // on the PCA model) to the existing vertices.
-      synth_mesh.set_point( *v_it, synth_mesh.point(*v_it)
-                          + FaceMesh::Point(diff_vertices(i), diff_vertices(i+1),
-                                          diff_vertices(i+2)));
+      synth_mesh.set_point( *v_it, FaceMesh::Point(point_trans_eigen(0),
+                                                   point_trans_eigen(1),
+                                                   point_trans_eigen(2)));
 
       i += 3;
     }

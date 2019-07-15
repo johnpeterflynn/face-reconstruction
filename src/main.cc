@@ -366,8 +366,8 @@ int main()
 
     Eigen::VectorXf vertices_out(3 * nVertices);
 
-    face_model.forwardPass(alpha, delta, vertices_out);
-    face_model.synthesizeModel(vertices_out);
+    face_model.forwardPass(alpha, delta, T_xy, vertices_out);
+    face_model.synthesizeModel(vertices_out, T_xy);
 
     std::cout << "Writing synthesized model to file\n";
     face_model.writeSynthesizedModel();
