@@ -19,16 +19,16 @@ struct ReconstructionCostFunctor {
         exprBasisEigenRow(exprBasisEigenRow_in), weight(weight_in) {}
 
   template <class T>
-  bool operator()(T const* const salpha,/* T const* const sdelta,*/
+  bool operator()(T const* const salpha, T const* const sdelta,
                   T const* const sT_xy,
                   T* sresiduals) const {
     Eigen::Map<Eigen::Matrix<T, NUM_PARAMS_ALPHA, 1> const> const alpha(salpha);
-    //Eigen::Map<Eigen::Matrix<T, NUM_PARAMS_DELTA, 1> const> const delta(sdelta);
+    Eigen::Map<Eigen::Matrix<T, NUM_PARAMS_DELTA, 1> const> const delta(sdelta);
     Eigen::Map<Sophus::SE3<T> const> const T_xy(sT_xy);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(sresiduals);
 
     Eigen::Matrix<T, 3, 1> v_model =
-            (v_face_avg.cast<T>() + shapeBasisEigenRow.cast<T>() * alpha /*+ exprBasisEigenRow.cast<T>() * delta*/);
+            (v_face_avg.cast<T>() + shapeBasisEigenRow.cast<T>() * alpha + exprBasisEigenRow.cast<T>() * delta);
 
     Eigen::Matrix<T, 3, 1> v_scan_est = T_xy * v_model;
 
@@ -83,10 +83,6 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
               Sophus::SE3d& T_xy) {
     ceres::Problem problem;
 
-    // Model transformation
-    //Eigen::Matrix3f R;
-    //Eigen::Vector3f t;
-
     problem.AddParameterBlock(T_xy.data(),
                               Sophus::SE3d::num_parameters,
                               new Sophus::test::LocalParameterizationSE3);
@@ -129,12 +125,12 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         problem.AddResidualBlock(
             // <dim of residual, dim of alpha, dim of delta>
             new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 3,
-                    NUM_PARAMS_ALPHA/*, NUM_PARAMS_DELTA*/,
+                    NUM_PARAMS_ALPHA, NUM_PARAMS_DELTA,
                     Sophus::SE3d::num_parameters>(
                 new ReconstructionCostFunctor(v3_face_avg, v3_scan_nn,
                                               shapeBasisEigenRows,
                                               exprBasisEigenRows, weight)),
-            nullptr, alpha.data()/*, delta.data()*/, T_xy.data());
+            nullptr, alpha.data(), delta.data(), T_xy.data());
 
         //std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
     }
@@ -151,7 +147,6 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
 
     }
 
-    /*
     for (int i = 0; i < NUM_PARAMS_DELTA; i++) {
         problem.AddResidualBlock(
             // <dim of residual, dim of alpha, dim of delta>
@@ -161,7 +156,6 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
             nullptr, delta.data());
         // Q: TODO: Is it a waste here to pass the whole delta?
     }
-*/
     ceres::Solver::Options options;
     options.max_num_iterations = 1;
     options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;//DENSE_QR;
