@@ -50,9 +50,8 @@ void FaceModel::load(const std::string &path) {
 }
 
 void FaceModel::forwardPass(const Eigen::VectorXd& alpha,
-                           const Eigen::VectorXd& delta,
-                           const Sophus::SE3d& T_xy,
-                           Eigen::VectorXf& vertices_out)
+                            const Eigen::VectorXd& delta,
+                            Eigen::VectorXf& vertices_out)
 {
     vertices_out = shapeBasisEigen * alpha.cast<float>() + exprBasisEigen * delta.cast<float>();
 }
@@ -85,25 +84,26 @@ int FaceModel::loadAverageMesh() {
       m_avg_mesh.set_point( *v_it, m_avg_mesh.point(*v_it) * SCALE_AVG_MESH );
     }
 
-    // Save synth mesh as average mesh in the beginning.
-    m_synth_mesh = m_avg_mesh;
-
     return 0;
 }
 
-int FaceModel::synthesizeModel(const Eigen::VectorXf& diff_vertices,
-                               const Sophus::SE3d& T_xy) {
+FaceModel::FaceMesh FaceModel::synthesizeModel(const Eigen::VectorXd& alpha,
+                                               const Eigen::VectorXd& delta,
+                                               const Sophus::SE3d& T_xy) {
     FaceMesh synth_mesh = m_avg_mesh;
+    Eigen::VectorXf diff_vertices(3 * nVertices);
 
-    size_t i = 0;
+    forwardPass(alpha, delta, diff_vertices);
 
     for (FaceMesh::VertexIter v_it = synth_mesh.vertices_begin();
          v_it != synth_mesh.vertices_end(); ++v_it)
     {
+      int v_idx = v_it->idx();
+
       FaceMesh::Point point = synth_mesh.point(*v_it);
-      Eigen::Vector3d point_prime_eigen(point[0] + diff_vertices(i),
-                                        point[1] + diff_vertices(i+1),
-                                        point[2] + diff_vertices(i+2));
+      Eigen::Vector3d point_prime_eigen(point[0] + diff_vertices(3 * v_idx + 0),
+                                        point[1] + diff_vertices(3 * v_idx + 1),
+                                        point[2] + diff_vertices(3 * v_idx + 2));
 
       Eigen::Vector3d point_trans_eigen = T_xy * point_prime_eigen;
 
@@ -112,22 +112,22 @@ int FaceModel::synthesizeModel(const Eigen::VectorXf& diff_vertices,
       synth_mesh.set_point( *v_it, FaceMesh::Point(point_trans_eigen(0),
                                                    point_trans_eigen(1),
                                                    point_trans_eigen(2)));
-
-      i += 3;
     }
 
-    m_synth_mesh = synth_mesh;
-
-    return 0;
+    return synth_mesh;
 }
 
-int FaceModel::writeSynthesizedModel() {
+int FaceModel::writeSynthesizedModel(const Eigen::VectorXd& alpha,
+                                     const Eigen::VectorXd& delta,
+                                     const Sophus::SE3d& T_xy) {
     OpenMesh::IO::Options wopt;
     wopt += OpenMesh::IO::Options::VertexColor;
 
+    FaceMesh synth_mesh = synthesizeModel(alpha, delta, T_xy);
+
     try
     {
-      if (!OpenMesh::IO::write_mesh(m_synth_mesh, FILENAME_OUT_SYNTH_MESH, wopt))
+      if (!OpenMesh::IO::write_mesh(synth_mesh, FILENAME_OUT_SYNTH_MESH, wopt))
       {
         std::cerr << "Cannot write mesh to file '" << FILENAME_OUT_SYNTH_MESH
                   << "'" << std::endl;

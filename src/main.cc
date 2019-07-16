@@ -381,13 +381,8 @@ int main()
 
     face_solver.solve(face_model, face_scan, alpha, delta, T_xy);
 
-    Eigen::VectorXf vertices_out(3 * nVertices);
-
-    face_model.forwardPass(alpha, delta, T_xy, vertices_out);
-    face_model.synthesizeModel(vertices_out, T_xy);
-
     std::cout << "Writing synthesized model to file\n";
-    face_model.writeSynthesizedModel();
+    face_model.writeSynthesizedModel(alpha, delta, T_xy);
 
     // Print alpha (geometry parameter we solved for)
     std::cout << alpha << std::endl;

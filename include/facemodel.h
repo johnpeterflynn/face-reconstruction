@@ -22,12 +22,14 @@ public:
     FaceModel(const std::string& path);
 
     void forwardPass(const Eigen::VectorXd& alpha, const Eigen::VectorXd& delta,
-                     const Sophus::SE3d& T_xy,
                       Eigen::VectorXf& vertices_out);
 
-    int synthesizeModel(const Eigen::VectorXf& diff_vertices,
-                        const Sophus::SE3d& T_xy);
-    int writeSynthesizedModel();
+    FaceMesh synthesizeModel(const Eigen::VectorXd& alpha,
+                             const Eigen::VectorXd& delta,
+                             const Sophus::SE3d& T_xy);
+    int writeSynthesizedModel(const Eigen::VectorXd& alpha,
+                              const Eigen::VectorXd& delta,
+                              const Sophus::SE3d& T_xy);
 
 private:
     void load(const std::string& path);
@@ -41,7 +43,6 @@ private:
 
 public:
     FaceMesh m_avg_mesh;
-    FaceMesh m_synth_mesh;
 
     Eigen::MatrixXf shapeBasisEigen;
     Eigen::MatrixXf exprBasisEigen;

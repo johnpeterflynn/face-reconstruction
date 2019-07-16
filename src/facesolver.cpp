@@ -251,12 +251,9 @@ void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan,
 
     std::cout << "Optimization starting: " << std::endl;
     for (int i = 0; i < m_num_iterations; i++) {
-        Eigen::VectorXf vertices_out(3 * nVertices);
-
-        face_model.forwardPass(alpha, delta, T_xy, vertices_out);
-        face_model.synthesizeModel(vertices_out, T_xy);
-
-        knn_model_to_scan(face_model.m_synth_mesh, face_scan.m_scanned_mesh, K, indices);
+        // Synthesize the latest model for the KNN.
+        MyMesh synth_mesh = face_model.synthesizeModel(alpha, delta, T_xy);
+        knn_model_to_scan(synth_mesh, face_scan.m_scanned_mesh, K, indices);
 
         // Replace KNN mathes with manually selected matches
         //std::set<int> matches;
