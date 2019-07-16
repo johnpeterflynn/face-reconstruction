@@ -21,16 +21,17 @@ public:
 private:
     void calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
                        Eigen::MatrixXi& indices);
-    int knn_model_to_scan(const FaceModel& face_model, const MyMesh& scanned_mesh, int K, Eigen::MatrixXi& indices);
+    int knn_model_to_scan(const MyMesh& synth_mesh, const MyMesh& scanned_mesh, int K, Eigen::MatrixXi& indices);
     void meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) ;
 
     void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
                   const Eigen::MatrixXi& indices,
-                  const std::set<int>& matches,
+                  const std::map<int, int>& match_indices,
                   const Eigen::MatrixXf& shapeBasisEigen,
                   const Eigen::MatrixXf& exprBasisEigen,
                   const Eigen::VectorXf& shapeDevEigen,
                   const Eigen::VectorXf& exprDevEigen,
+                  bool weigh_separately, int max_num_iterations,
                   Eigen::VectorXd& alpha, Eigen::VectorXd& delta,
                   Sophus::SE3d& T_xy);
 
