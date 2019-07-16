@@ -241,14 +241,16 @@ void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan,
     std::map<int, int> match_indices = face_scan.getMatchIndices();
     Eigen::MatrixXi indices(0, 0);
 
+    // First run ceres only on the correspondence points to get close to the face.
     std::cout << "Running ceres without KNN: " << std::endl;
     runCeres(face_model.m_avg_mesh, face_scan.m_scanned_mesh, indices, match_indices,
              face_model.shapeBasisEigen, face_model.exprBasisEigen,
              face_model.shapeDevEigen, face_model.exprDevEigen,
-             true, 10, alpha, delta, T_xy);
+             false, 20, alpha, delta, T_xy);
 
     std::cout << "Ceres finished: " << std::endl;
 
+    // Next run ceres using the KNN matches
     std::cout << "Optimization starting: " << std::endl;
     for (int i = 0; i < m_num_iterations; i++) {
         // Synthesize the latest model for the KNN.
