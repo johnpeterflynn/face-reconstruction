@@ -37,6 +37,20 @@ struct ReconstructionCostFunctor {
     return true;
   }
 
+  static ceres::CostFunction* create(const Eigen::Vector3d& v3_face_avg,
+                                     const Eigen::Vector3d& v3_scan_nn,
+                                     const Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA>& shapeBasisEigenRows,
+                                     const Eigen::Matrix<double, 3, NUM_PARAMS_DELTA>& exprBasisEigenRows,
+                                     double weight) {
+      // <dim of residual, dim of alpha, dim of delta, dim of transformation>
+      return new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 3,
+              NUM_PARAMS_ALPHA, NUM_PARAMS_DELTA,
+              Sophus::SE3d::num_parameters>(
+          new ReconstructionCostFunctor(v3_face_avg, v3_scan_nn,
+                                        shapeBasisEigenRows,
+                                        exprBasisEigenRows, weight));
+  }
+
   const Eigen::Matrix<double, 3, 1> v_face_avg;
   const Eigen::Matrix<double, 3, 1> v_scan;
 
@@ -123,13 +137,9 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
 
         // For each entry in a vector v3
         problem.AddResidualBlock(
-            // <dim of residual, dim of alpha, dim of delta>
-            new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 3,
-                    NUM_PARAMS_ALPHA, NUM_PARAMS_DELTA,
-                    Sophus::SE3d::num_parameters>(
-                new ReconstructionCostFunctor(v3_face_avg, v3_scan_nn,
-                                              shapeBasisEigenRows,
-                                              exprBasisEigenRows, weight)),
+                    ReconstructionCostFunctor::create(v3_face_avg,v3_scan_nn,
+                                                      shapeBasisEigenRows,
+                                                      exprBasisEigenRows, weight),
             nullptr, alpha.data(), delta.data(), T_xy.data());
 
         //std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
