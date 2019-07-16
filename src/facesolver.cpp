@@ -80,9 +80,10 @@ private:
     const double stddev;
 };
 
-FaceSolver::FaceSolver(double geo_regularization, int num_iterations) :
+FaceSolver::FaceSolver(double geo_regularization, int num_iterations, double percent_used_vertices) :
     m_geo_regularization(geo_regularization),
-    m_num_iterations(num_iterations)
+    m_num_iterations(num_iterations),
+    m_num_skip_vertices(int(1.0 / percent_used_vertices))
 {
 }
 
@@ -122,7 +123,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                 weight = 100.0;
             }
         }
-        else if (/*(v_model_idx % 20) == 0 &&*/ indices.cols() > v_model_idx) {
+        else if ((v_model_idx % (m_num_skip_vertices - 1)) == 0 && indices.cols() > v_model_idx) {
             v_scan_idx = indices(0, v_model_idx);
         }
 

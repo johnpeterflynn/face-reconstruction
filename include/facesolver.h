@@ -14,7 +14,7 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 
 class FaceSolver {
 public:
-    FaceSolver(double geo_regularization, int num_iterations);
+    FaceSolver(double geo_regularization, int num_iterations, double percent_used_vertices);
 
     void solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta, Sophus::SE3d& T_xy);
 
@@ -36,8 +36,10 @@ private:
                   Sophus::SE3d& T_xy);
 
 private:
-    double m_geo_regularization;
-    int m_num_iterations;
+    double m_geo_regularization; // Geometric regularization constant
+    int m_num_iterations; // Number of iterations over both knn and then ceres
+    int m_num_skip_vertices; // Number of vertices to skip per vertex chosen
+
 };
 
 #endif // FACESOLVER_H
