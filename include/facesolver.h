@@ -39,7 +39,7 @@ private:
     double m_geo_regularization; // Geometric regularization constant
     double m_huber_parameter; // Parameter for the Huber Loss function
     int m_num_iterations; // Number of iterations over both knn and then ceres
-    int m_num_skip_vertices; // Number of vertices to skip per vertex chosen
+    double m_percent_used_vertices; // Percent of vertices to use in the model
 
 };
 

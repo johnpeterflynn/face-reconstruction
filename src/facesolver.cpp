@@ -84,7 +84,7 @@ FaceSolver::FaceSolver(double geo_regularization, double huber_parameter, int nu
     m_geo_regularization(geo_regularization),
     m_huber_parameter(huber_parameter),
     m_num_iterations(num_iterations),
-    m_num_skip_vertices(int(1.0 / percent_used_vertices))
+    m_percent_used_vertices(percent_used_vertices)
 {
 }
 
@@ -113,6 +113,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         int v_model_idx = v_it->idx();
         int v_scan_idx = -1;
         double weight = 1.0;
+        bool use_vertex = (rand()/double(RAND_MAX + 1u) <= m_percent_used_vertices);
 
         ceres::LossFunctionWrapper* loss = nullptr;
 
@@ -120,15 +121,13 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         auto match_it = match_indices.find(v_model_idx);
         if (match_it != match_indices.end()) {
             v_scan_idx = match_it->second;
-
             // Add more weight to sparse correspondences
             if (weigh_separately) {
                 weight = 100.0;
             }
         }
-        else if ((v_model_idx % (m_num_skip_vertices - 1)) == 0 && indices.cols() > v_model_idx) {
+        else if (use_vertex && indices.cols() > v_model_idx) {
             v_scan_idx = indices(0, v_model_idx);
-
             // Use a loss function for non-sparse correspondence vertices.
             // When there is a gap in the scanned mesh, many of the model vertices
             // will match to the edges of the scanned mesh gap via KNN. The
@@ -138,7 +137,6 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                 new ceres::HuberLoss(m_huber_parameter),
                 ceres::TAKE_OWNERSHIP);
         }
-
         // Constants in optimization
 
         if (v_scan_idx != -1) {
@@ -164,7 +162,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                                                           exprBasisEigenRows, weight),
                 loss, alpha.data(), delta.data(), T_xy.data());
 
-            //std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
+            //std::cout << "Adding residual: " << v_model_idx << "/" << nVertices << "\n";
         }
     }
 
@@ -249,6 +247,8 @@ void FaceSolver::meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) {
 void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan,
                        Eigen::VectorXd& alpha, Eigen::VectorXd& delta,
                        Sophus::SE3d& T_xy) {
+    srand(time(NULL));
+
     const int K = 1;
     std::map<int, int> match_indices = face_scan.getMatchIndices();
     Eigen::MatrixXi indices(0, 0);
