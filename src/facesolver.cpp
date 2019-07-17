@@ -80,8 +80,9 @@ private:
     const double stddev;
 };
 
-FaceSolver::FaceSolver(double geo_regularization, int num_iterations, double percent_used_vertices) :
+FaceSolver::FaceSolver(double geo_regularization, double huber_parameter, int num_iterations, double percent_used_vertices) :
     m_geo_regularization(geo_regularization),
+    m_huber_parameter(huber_parameter),
     m_num_iterations(num_iterations),
     m_num_skip_vertices(int(1.0 / percent_used_vertices))
 {
@@ -113,6 +114,8 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         int v_scan_idx = -1;
         double weight = 1.0;
 
+        ceres::LossFunctionWrapper* loss = nullptr;
+
         // Get the scan vertex and residual weight for each model vertex
         auto match_it = match_indices.find(v_model_idx);
         if (match_it != match_indices.end()) {
@@ -125,6 +128,15 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         }
         else if ((v_model_idx % (m_num_skip_vertices - 1)) == 0 && indices.cols() > v_model_idx) {
             v_scan_idx = indices(0, v_model_idx);
+
+            // Use a loss function for non-sparse correspondence vertices.
+            // When there is a gap in the scanned mesh, many of the model vertices
+            // will match to the edges of the scanned mesh gap via KNN. The
+            // larger errors are typically bad matches so we use a loss function
+            // to reduce their effect on the total cost.
+            loss = new ceres::LossFunctionWrapper(
+                new ceres::HuberLoss(m_huber_parameter),
+                ceres::TAKE_OWNERSHIP);
         }
 
         // Constants in optimization
@@ -150,7 +162,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                         ReconstructionCostFunctor::create(v3_face_avg,v3_scan_nn,
                                                           shapeBasisEigenRows,
                                                           exprBasisEigenRows, weight),
-                nullptr, alpha.data(), delta.data(), T_xy.data());
+                loss, alpha.data(), delta.data(), T_xy.data());
 
             //std::cout << "Adding residual: " << v_idx << "/" << avg_face_mesh.n_vertices() << "\n";
         }
