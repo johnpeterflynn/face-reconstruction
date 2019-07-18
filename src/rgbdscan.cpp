@@ -10,11 +10,23 @@ RGBDScan::RGBDScan(const std::string& path) {
 
 void RGBDScan::loadMatchIndices() {
     // Dummy data for now
-    m_match_indices[2000] = 2000;
-    m_match_indices[10000] = 10000;
-    m_match_indices[25000] = 25000;
-    m_match_indices[30000] = 30000;
+/*
+    m_match_indices[12280] = 12280;
+    m_match_indices[4280] = 4280;
+    m_match_indices[8319] = 8319;
+    m_match_indices[48246] = 48246;
+
+    m_match_indices[482] = 482;
+    m_match_indices[2881] = 2881;
     m_match_indices[50000] = 50000;
+    m_match_indices[31000] = 31000;
+*/
+
+    m_match_indices[12280] = 9734;
+    m_match_indices[4280] = 10045;
+    m_match_indices[8319] = 12539;
+    m_match_indices[48246] = 19679;
+
 }
 
 std::map<int, int> RGBDScan::getMatchIndices() {

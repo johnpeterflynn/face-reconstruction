@@ -80,16 +80,17 @@ private:
     const double stddev;
 };
 
-FaceSolver::FaceSolver(double geo_regularization, double huber_parameter, int num_iterations, double percent_used_vertices) :
+FaceSolver::FaceSolver(double geo_regularization, double huber_parameter, double knn_dist_thresh, int num_iterations, double percent_used_vertices) :
     m_geo_regularization(geo_regularization),
     m_huber_parameter(huber_parameter),
+    m_knn_dist_thresh(knn_dist_thresh),
     m_num_iterations(num_iterations),
     m_percent_used_vertices(percent_used_vertices)
 {
 }
 
 void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
-              const Eigen::MatrixXi& indices,
+              const Eigen::MatrixXi& indices, const Eigen::MatrixXf& dists2,
               const std::map<int, int>& match_indices,
               const Eigen::MatrixXf& shapeBasisEigen,
               const Eigen::MatrixXf& exprBasisEigen,
@@ -104,12 +105,13 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                               Sophus::SE3d::num_parameters,
                               new Sophus::test::LocalParameterizationSE3);
 
+    // The black average face model has pixels in black to be optimized over
+    MyMesh::Color optimizable_pixel_color(0, 0, 0);
+
     for (MyMesh::VertexIter v_it = avg_face_mesh.vertices_begin();
          v_it != avg_face_mesh.vertices_end(); ++v_it)
     {
         // Get index of average face vertex
-        //int v_idx = v_it->idx();
-
         int v_model_idx = v_it->idx();
         int v_scan_idx = -1;
         double weight = 1.0;
@@ -126,43 +128,55 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                 weight = 100.0;
             }
         }
-        else if (use_vertex && indices.cols() > v_model_idx) {
+        // If model vertex is randomly selected, it has a valid correspondence,
+        // its squared correspondence distance is below a threshold and its in
+        // the region of pixels selected on the model face to optimize, then assign
+        // a valid correspondence to create a residual.
+        else if (use_vertex && v_model_idx < indices.cols()
+                 && dists2(0, v_model_idx) <= m_knn_dist_thresh * m_knn_dist_thresh
+                 && avg_face_mesh.color(*v_it) == optimizable_pixel_color) {
+
             v_scan_idx = indices(0, v_model_idx);
+
             // Use a loss function for non-sparse correspondence vertices.
             // When there is a gap in the scanned mesh, many of the model vertices
             // will match to the edges of the scanned mesh gap via KNN. The
             // larger errors are typically bad matches so we use a loss function
             // to reduce their effect on the total cost.
-            loss = new ceres::LossFunctionWrapper(
-                new ceres::HuberLoss(m_huber_parameter),
-                ceres::TAKE_OWNERSHIP);
+            loss = nullptr;//new ceres::LossFunctionWrapper(
+                //new ceres::HuberLoss(m_huber_parameter),
+                //ceres::TAKE_OWNERSHIP);
         }
         // Constants in optimization
 
         if (v_scan_idx != -1) {
-            // Get vertex itself for average face mesh
-            MyMesh::Point p3_face_avg = avg_face_mesh.point(*v_it);
-            Eigen::Vector3d v3_face_avg(p3_face_avg[0], p3_face_avg[1], p3_face_avg[2]);
 
-            // Get nearest neighbor vertex in scanned mesh
+
             MyMesh::VertexHandle v_scan_handle(v_scan_idx);
-            MyMesh::Point p3_scan_nn = scanned_mesh.point(v_scan_handle);
-            Eigen::Vector3d v3_scan_nn(p3_scan_nn[0], p3_scan_nn[1], p3_scan_nn[2]);
+            if (!scanned_mesh.is_boundary(v_scan_handle)){
+                // Get nearest neighbor vertex in scanned mesh
+                MyMesh::Point p3_scan_nn = scanned_mesh.point(v_scan_handle);
+                Eigen::Vector3d v3_scan_nn(p3_scan_nn[0], p3_scan_nn[1], p3_scan_nn[2]);
 
-            // TODO:These are being copied but pointers should be used instead
-            Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA> shapeBasisEigenRows
-                    = shapeBasisEigen.block<3, NUM_PARAMS_ALPHA>(3 * v_model_idx, 0).cast<double>();
-            Eigen::Matrix<double, 3, NUM_PARAMS_DELTA> exprBasisEigenRows
-                    = exprBasisEigen.block<3, NUM_PARAMS_DELTA>(3 * v_model_idx, 0).cast<double>();
+                // Get vertex itself for average face mesh
+                MyMesh::Point p3_face_avg = avg_face_mesh.point(*v_it);
+                Eigen::Vector3d v3_face_avg(p3_face_avg[0], p3_face_avg[1], p3_face_avg[2]);
 
-            // For each entry in a vector v3
-            problem.AddResidualBlock(
-                        ReconstructionCostFunctor::create(v3_face_avg,v3_scan_nn,
-                                                          shapeBasisEigenRows,
-                                                          exprBasisEigenRows, weight),
-                loss, alpha.data(), delta.data(), T_xy.data());
+                // TODO:These are being copied but pointers should be used instead
+                Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA> shapeBasisEigenRows
+                        = shapeBasisEigen.block<3, NUM_PARAMS_ALPHA>(3 * v_model_idx, 0).cast<double>();
+                Eigen::Matrix<double, 3, NUM_PARAMS_DELTA> exprBasisEigenRows
+                        = exprBasisEigen.block<3, NUM_PARAMS_DELTA>(3 * v_model_idx, 0).cast<double>();
 
-            //std::cout << "Adding residual: " << v_model_idx << "/" << nVertices << "\n";
+                // For each entry in a vector v3
+                problem.AddResidualBlock(
+                            ReconstructionCostFunctor::create(v3_face_avg,v3_scan_nn,
+                                                              shapeBasisEigenRows,
+                                                              exprBasisEigenRows, weight),
+                    loss, alpha.data(), delta.data(), T_xy.data());
+
+                //std::cout << "Adding residual: " << v_model_idx << "/" << nVertices << "\n";
+            }
         }
     }
 
@@ -200,13 +214,13 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
 }
 
 void FaceSolver::calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
-                  Eigen::MatrixXi& indices)
+                  Eigen::MatrixXi& indices, Eigen::MatrixXf& dists2)
 {
     const int K = indices.rows();
 
     Nabo::NNSearchF* nns = Nabo::NNSearchF::createKDTreeLinearHeap(M);
     //Eigen::VectorXi indices(K);
-    Eigen::MatrixXf dists2(K, q.cols());
+    //Eigen::MatrixXf dists2(K, q.cols());
 
     // ALLOW_SELF_MATCH appears to be necessary to match vertices that are
     // exactly the same.
@@ -216,7 +230,8 @@ void FaceSolver::calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& 
     return;
 }
 
-int FaceSolver::knn_model_to_scan(const MyMesh& synth_mesh, const MyMesh& scanned_mesh, int K, Eigen::MatrixXi& indices) {
+int FaceSolver::knn_model_to_scan(const MyMesh& synth_mesh, const MyMesh& scanned_mesh,
+                                  int K, Eigen::MatrixXi& indices, Eigen::MatrixXf& dists2) {
     Eigen::MatrixXf FM(3, synth_mesh.n_vertices());
     Eigen::MatrixXf SM(3, scanned_mesh.n_vertices());
 
@@ -228,7 +243,7 @@ int FaceSolver::knn_model_to_scan(const MyMesh& synth_mesh, const MyMesh& scanne
     // Indices for  for each column vector in FN
     indices.resize(K, FM.cols());
 
-    calculate_knn(SM, FM, indices);
+    calculate_knn(SM, FM, indices, dists2);
 
     std::cout << "Finished KNN\n";
 }
@@ -252,10 +267,11 @@ void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan,
     const int K = 1;
     std::map<int, int> match_indices = face_scan.getMatchIndices();
     Eigen::MatrixXi indices(0, 0);
+    Eigen::MatrixXf dists2(K, nVertices);
 
     // First run ceres only on the correspondence points to get close to the face.
     std::cout << "Running ceres without KNN: " << std::endl;
-    runCeres(face_model.m_avg_mesh, face_scan.m_scanned_mesh, indices, match_indices,
+    runCeres(face_model.m_avg_opt_mesh, face_scan.m_scanned_mesh, indices, dists2, match_indices,
              face_model.shapeBasisEigen, face_model.exprBasisEigen,
              face_model.shapeDevEigen, face_model.exprDevEigen,
              false, 20, alpha, delta, T_xy);
@@ -267,7 +283,7 @@ void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan,
     for (int i = 0; i < m_num_iterations; i++) {
         // Synthesize the latest model for the KNN.
         MyMesh synth_mesh = face_model.synthesizeModel(alpha, delta, T_xy);
-        knn_model_to_scan(synth_mesh, face_scan.m_scanned_mesh, K, indices);
+        knn_model_to_scan(synth_mesh, face_scan.m_scanned_mesh, K, indices, dists2);
 
         // Replace KNN mathes with manually selected matches
         //std::set<int> matches;
@@ -277,7 +293,7 @@ void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan,
         }
 
         std::cout << "Running ceres: " << std::endl;
-        runCeres(face_model.m_avg_mesh, face_scan.m_scanned_mesh, indices, match_indices,
+        runCeres(face_model.m_avg_opt_mesh, face_scan.m_scanned_mesh, indices, dists2, match_indices,
                  face_model.shapeBasisEigen, face_model.exprBasisEigen,
                  face_model.shapeDevEigen, face_model.exprDevEigen,
                  true, 1, alpha, delta, T_xy);

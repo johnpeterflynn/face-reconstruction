@@ -10,9 +10,10 @@ constexpr int NUM_PARAMS_ALPHA = 30;
 constexpr int NUM_PARAMS_DELTA = 30;
 
 constexpr const char* MODEL_PATH = "../models";
-constexpr const char* FILENAME_SCANNED_MESH = "../testData/fakekinectdata.off";
+constexpr const char* FILENAME_SCANNED_MESH = "../testData/kinectdata.off";
 
 constexpr const char* FILENAME_AVG_MESH = "../models/averageMesh.off";
+constexpr const char* FILENAME_AVG_OPT_MESH = "../models/averageMesh_blackface.off";
 constexpr const char* FILENAME_OUT_SYNTH_MESH = "synthesizedMesh.off";
 
 constexpr const char* filenameBasisShape = "ShapeBasis.matrix";

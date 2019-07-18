@@ -41,7 +41,8 @@ void FaceModel::load(const std::string &path) {
     convertDeviations(shapeDevEigen, NumberOfEigenvectors, shapeDevCPU);
     convertDeviations(exprDevEigen, NumberOfExpressions, expressionDevCPU);
 
-    loadAverageMesh();
+    loadAverageMesh(FILENAME_AVG_MESH, m_avg_mesh);
+    loadAverageMesh(FILENAME_AVG_OPT_MESH, m_avg_opt_mesh);
 
     delete[] shapeBasisCPU;
     delete[] expressionBasisCPU;
@@ -56,32 +57,32 @@ void FaceModel::forwardPass(const Eigen::VectorXd& alpha,
     vertices_out = shapeBasisEigen * alpha.cast<float>() + exprBasisEigen * delta.cast<float>();
 }
 
-int FaceModel::loadAverageMesh() {
+int FaceModel::loadAverageMesh(const std::string& path, FaceMesh& mesh) {
     OpenMesh::IO::Options ropt;
 
     // Set input options
     ropt += OpenMesh::IO::Options::VertexColor;
 
-    m_avg_mesh.request_vertex_colors();
+    mesh.request_vertex_colors();
 
     // assure we have vertex normals
-    if (!m_avg_mesh.has_vertex_colors())
+    if (!mesh.has_vertex_colors())
     {
       std::cerr << "ERROR: Standard vertex property 'Colors' not available for average mesh!\n";
       return 1;
     }
 
-    if (!OpenMesh::IO::read_mesh(m_avg_mesh, FILENAME_AVG_MESH, ropt)) {
-        std::cerr << "ERROR: Could not load " << FILENAME_AVG_MESH << "\n";
+    if (!OpenMesh::IO::read_mesh(mesh, path, ropt)) {
+        std::cerr << "ERROR: Could not load " << path << "\n";
         return 1;
     }
 
     // The average mesh provided by Justus Thies must be scaled by a factor
     // AVG_MESH_SCALE
-    for (FaceMesh::VertexIter v_it = m_avg_mesh.vertices_begin();
-         v_it != m_avg_mesh.vertices_end(); ++v_it)
+    for (FaceMesh::VertexIter v_it = mesh.vertices_begin();
+         v_it != mesh.vertices_end(); ++v_it)
     {
-      m_avg_mesh.set_point( *v_it, m_avg_mesh.point(*v_it) * SCALE_AVG_MESH );
+      mesh.set_point( *v_it, mesh.point(*v_it) * SCALE_AVG_MESH );
     }
 
     return 0;

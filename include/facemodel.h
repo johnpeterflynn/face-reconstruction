@@ -33,7 +33,7 @@ public:
 
 private:
     void load(const std::string& path);
-    int loadAverageMesh();
+    int loadAverageMesh(const std::string& path, FaceMesh& mesh);
 
     void loadVector(const std::string &filename, float *res, unsigned int length);
     void progressBar(const char* str, int num);
@@ -43,6 +43,7 @@ private:
 
 public:
     FaceMesh m_avg_mesh;
+    FaceMesh m_avg_opt_mesh;// Average mesh for optimization (has optimal region selected in black)
 
     Eigen::MatrixXf shapeBasisEigen;
     Eigen::MatrixXf exprBasisEigen;

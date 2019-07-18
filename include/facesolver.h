@@ -14,18 +14,21 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
 
 class FaceSolver {
 public:
-    FaceSolver(double geo_regularization, double huber_parameter, int num_iterations, double percent_used_vertices);
+    FaceSolver(double geo_regularization, double huber_parameter,
+               double knn_dist_thresh, int num_iterations,
+               double percent_used_vertices);
 
     void solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta, Sophus::SE3d& T_xy);
 
 private:
     void calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
-                       Eigen::MatrixXi& indices);
-    int knn_model_to_scan(const MyMesh& synth_mesh, const MyMesh& scanned_mesh, int K, Eigen::MatrixXi& indices);
+                       Eigen::MatrixXi& indices, Eigen::MatrixXf& dists2);
+    int knn_model_to_scan(const MyMesh& synth_mesh, const MyMesh& scanned_mesh,
+                          int K, Eigen::MatrixXi& indices, Eigen::MatrixXf& dists2);
     void meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) ;
 
     void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
-                  const Eigen::MatrixXi& indices,
+                  const Eigen::MatrixXi& indices, const Eigen::MatrixXf& dists2,
                   const std::map<int, int>& match_indices,
                   const Eigen::MatrixXf& shapeBasisEigen,
                   const Eigen::MatrixXf& exprBasisEigen,
@@ -38,6 +41,7 @@ private:
 private:
     double m_geo_regularization; // Geometric regularization constant
     double m_huber_parameter; // Parameter for the Huber Loss function
+    double m_knn_dist_thresh; // KNN distance threshold in meters. Anything above this is not considered a match
     int m_num_iterations; // Number of iterations over both knn and then ceres
     double m_percent_used_vertices; // Percent of vertices to use in the model
 
