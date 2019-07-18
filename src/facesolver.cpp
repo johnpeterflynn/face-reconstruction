@@ -210,7 +210,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
     ceres::Solve(options, &problem, &summary);
 
     std::cout << summary.BriefReport() << std::endl;
-    std::cout << summary.FullReport() << std::endl;
+    //std::cout << summary.FullReport() << std::endl;
 }
 
 void FaceSolver::calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& q,
