@@ -13,10 +13,13 @@ struct ReconstructionCostFunctor {
                             const Eigen::Matrix<double, 3, 1>& v_scan_in,
                             const Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA>& shapeBasisEigenRow_in,
                             const Eigen::Matrix<double, 3, NUM_PARAMS_DELTA>& exprBasisEigenRow_in,
+                            const Eigen::Matrix<double, 3, 1> m_norm_in,
+                            const Eigen::Matrix<double, 3, 1> s_norm_in,
                             double weight_in = 1.0)
       : v_face_avg(v_face_avg_in), v_scan(v_scan_in),
         shapeBasisEigenRow(shapeBasisEigenRow_in),
-        exprBasisEigenRow(exprBasisEigenRow_in), weight(weight_in) {}
+        exprBasisEigenRow(exprBasisEigenRow_in),
+        m_norm(m_norm_in),s_norm(s_norm_in), weight(weight_in) {}
 
   template <class T>
   bool operator()(T const* const salpha, T const* const sdelta,
@@ -25,14 +28,20 @@ struct ReconstructionCostFunctor {
     Eigen::Map<Eigen::Matrix<T, NUM_PARAMS_ALPHA, 1> const> const alpha(salpha);
     Eigen::Map<Eigen::Matrix<T, NUM_PARAMS_DELTA, 1> const> const delta(sdelta);
     Eigen::Map<Sophus::SE3<T> const> const T_xy(sT_xy);
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(sresiduals);
+    Eigen::Map<Eigen::Matrix<T, 5, 1>> residuals(sresiduals);
 
     Eigen::Matrix<T, 3, 1> v_model =
             (v_face_avg.cast<T>() + shapeBasisEigenRow.cast<T>() * alpha + exprBasisEigenRow.cast<T>() * delta);
 
     Eigen::Matrix<T, 3, 1> v_scan_est = T_xy * v_model;
 
-    residuals = sqrt(T(weight)) * (v_scan.cast<T>() - v_scan_est);
+    Eigen::Matrix<T, 3, 1> resid3 = sqrt(T(weight)) * (v_scan.cast<T>() - v_scan_est);
+
+    residuals[0] = resid3[0];
+    residuals[1] = resid3[1];
+    residuals[2] = resid3[1];
+    residuals[3] =  (resid3.transpose() * m_norm.cast<T>())[0];
+    residuals[4] =  (resid3.transpose() * s_norm.cast<T>())[0];
 
     return true;
   }
@@ -41,18 +50,23 @@ struct ReconstructionCostFunctor {
                                      const Eigen::Vector3d& v3_scan_nn,
                                      const Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA>& shapeBasisEigenRows,
                                      const Eigen::Matrix<double, 3, NUM_PARAMS_DELTA>& exprBasisEigenRows,
+                                     const Eigen::Matrix<double, 3, 1> m_norm,
+                                     const Eigen::Matrix<double, 3, 1> s_norm,
                                      double weight) {
       // <dim of residual, dim of alpha, dim of delta, dim of transformation>
-      return new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 3,
+      return new ceres::AutoDiffCostFunction<ReconstructionCostFunctor, 5,
               NUM_PARAMS_ALPHA, NUM_PARAMS_DELTA,
               Sophus::SE3d::num_parameters>(
           new ReconstructionCostFunctor(v3_face_avg, v3_scan_nn,
                                         shapeBasisEigenRows,
-                                        exprBasisEigenRows, weight));
+                                        exprBasisEigenRows, m_norm, s_norm, weight));
   }
 
   const Eigen::Matrix<double, 3, 1> v_face_avg;
   const Eigen::Matrix<double, 3, 1> v_scan;
+
+  const Eigen::Matrix<double, 3, 1> m_norm;
+  const Eigen::Matrix<double, 3, 1> s_norm;
 
   // TODO: Again, these are copied so need another way.
   const Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA> shapeBasisEigenRow;
@@ -111,6 +125,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
     for (MyMesh::VertexIter v_it = avg_face_mesh.vertices_begin();
          v_it != avg_face_mesh.vertices_end(); ++v_it)
     {
+       // avg_face_mesh.
         // Get index of average face vertex
         int v_model_idx = v_it->idx();
         int v_scan_idx = -1;
@@ -150,10 +165,9 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
         // Constants in optimization
 
         if (v_scan_idx != -1) {
-
-
             MyMesh::VertexHandle v_scan_handle(v_scan_idx);
-            if (!scanned_mesh.is_boundary(v_scan_handle)){
+
+            if (!scanned_mesh.is_boundary(v_scan_handle)){   
                 // Get nearest neighbor vertex in scanned mesh
                 MyMesh::Point p3_scan_nn = scanned_mesh.point(v_scan_handle);
                 Eigen::Vector3d v3_scan_nn(p3_scan_nn[0], p3_scan_nn[1], p3_scan_nn[2]);
@@ -161,6 +175,14 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                 // Get vertex itself for average face mesh
                 MyMesh::Point p3_face_avg = avg_face_mesh.point(*v_it);
                 Eigen::Vector3d v3_face_avg(p3_face_avg[0], p3_face_avg[1], p3_face_avg[2]);
+
+                // Get model normal
+                MyMesh::Normal m_norm = avg_face_mesh.normal(*v_it);
+                Eigen::Vector3d m_norm_eig(m_norm[0], m_norm[1], m_norm[2]);
+
+                // Get scan normal
+                MyMesh::Normal s_norm = scanned_mesh.normal(v_scan_handle);
+                Eigen::Vector3d s_norm_eig(s_norm[0], s_norm[1], s_norm[2]);
 
                 // TODO:These are being copied but pointers should be used instead
                 Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA> shapeBasisEigenRows
@@ -172,7 +194,8 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                 problem.AddResidualBlock(
                             ReconstructionCostFunctor::create(v3_face_avg,v3_scan_nn,
                                                               shapeBasisEigenRows,
-                                                              exprBasisEigenRows, weight),
+                                                              exprBasisEigenRows,
+                                                              m_norm_eig, s_norm_eig, weight),
                     loss, alpha.data(), delta.data(), T_xy.data());
 
                 //std::cout << "Adding residual: " << v_model_idx << "/" << nVertices << "\n";
