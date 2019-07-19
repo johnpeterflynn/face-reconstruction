@@ -50,6 +50,8 @@
 #include <cstdlib>
 #include <array>
 #include <set>
+#include <thread>
+#include <mutex>
 #include <unordered_map>
 
 const int WIDTH = 800;
@@ -162,6 +164,10 @@ public:
         mainLoop();
         cleanup();
     }
+
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
+	std::mutex data_mutex;
     
 private:
     GLFWwindow* window;
@@ -199,8 +205,6 @@ private:
     VkImageView textureImageView;
     VkSampler textureSampler;
     
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
     VkBuffer indexBuffer;
@@ -253,7 +257,6 @@ private:
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
-        loadModel();
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffers();
@@ -266,7 +269,9 @@ private:
     void mainLoop() {
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+			data_mutex.lock();
             drawFrame();
+			data_mutex.unlock();
         }
         
         vkDeviceWaitIdle(device);
@@ -1033,105 +1038,6 @@ private:
         endSingleTimeCommands(commandBuffer);
     }
     
-    void loadModel() {
-        const aiScene* scene;
-		    Assimp::Importer Importer;
-
-        // Flags for loading the mesh
-        static const int assimpFlags = aiProcess_Triangulate | aiProcess_PreTransformVertices;
-
-        scene = Importer.ReadFile("/Users/ardakeskiner/Desktop/TUM/Courses/ss19/3d_scanning_and_motion_capture/MorphableModel/averageMesh.off", assimpFlags);
-        float scale = 3.0f;
-        std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
-        std::unordered_map<uint32_t, uint32_t> uniqueIndices = {};
-
-        for (uint32_t m = 0; m < scene->mNumMeshes; m++) {
-          std::cout << scene->mMeshes[m]->mNumVertices << "\n";
-
-          for (uint32_t v = 0; v < scene->mMeshes[m]->mNumVertices; v++) {
-            Vertex vertex;
-
-            // Use glm make_* functions to convert ASSIMP vectors to glm vectors
-            vertex.pos = {
-                scene->mMeshes[m]->mVertices[v].x,
-                scene->mMeshes[m]->mVertices[v].y,
-                scene->mMeshes[m]->mVertices[v].z,
-            };
-
-            vertex.color = {
-              scene->mMeshes[m]->mColors[0][v].r / 255.0f,
-              scene->mMeshes[m]->mColors[0][v].g / 255.0f,
-              scene->mMeshes[m]->mColors[0][v].b / 255.0f
-            };
-            
-            // vertex.color = (scene->mMeshes[m]->HasVertexColors(0)) ? glm::make_vec3(&scene->mMeshes[m]->mColors[0][v].r) : glm::vec3(1.0f);
-
-
-
-            if (uniqueVertices.count(vertex) == 0) {
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.push_back(vertex);
-            }
-
-          }
-
-          std::cout << scene->mMeshes[m]->mNumFaces << "\n";
-
-          if (indices.size() == 0) {
-            for(uint32_t i = 0; i < scene->mMeshes[m]->mNumFaces; i++) {
-              const aiFace& Face = scene->mMeshes[m]->mFaces[i];
-              if(Face.mNumIndices == 3) {
-                  indices.push_back(Face.mIndices[0]);
-                  indices.push_back(Face.mIndices[1]);
-                  indices.push_back(Face.mIndices[2]);
-              }
-              
-            }
-          }
-          
-
-          std::cout << indices.size() << "\n";
-          std::cout << vertices.size() << "\n";
-        }
-
-        // tinyobj::attrib_t attrib;
-        // std::vector<tinyobj::shape_t> shapes;
-        // std::vector<tinyobj::material_t> materials;
-        // std::string warn, err;
-        
-        // if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
-        //     throw std::runtime_error(warn + err);
-        // }
-
-        // std::unordered_map<Vertex, uint32_t> uniqueVertices = {};
-
-        // for (const auto& shape : shapes) {
-        //     for (const auto& index : shape.mesh.indices) {
-        //         Vertex vertex = {};
-                
-        //         vertex.pos = {
-        //             attrib.vertices[3 * index.vertex_index + 0],
-        //             attrib.vertices[3 * index.vertex_index + 1],
-        //             attrib.vertices[3 * index.vertex_index + 2]
-        //         };
-                
-        //         // vertex.texCoord = {
-        //         //     attrib.texcoords[2 * index.texcoord_index + 0],
-        //         //     1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-        //         // };
-                
-        //         vertex.color = {1.0f, 1.0f, 1.0f};
-                
-        //         if (uniqueVertices.count(vertex) == 0) {
-        //             uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-        //             vertices.push_back(vertex);
-        //         }
-                
-        //         indices.push_back(uniqueVertices[vertex]);
-        //     }
-        // }
-    }
-    
     void createVertexBuffer() {
         VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
         
@@ -1416,7 +1322,7 @@ private:
         
         UniformBufferObject ubo = {};
         ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(200000.0f, 200000.0f, 200000.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(glm::vec3(20.0f, 20.0f, 20.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 500000.0f);
         ubo.proj[1][1] *= -1;
         
@@ -1691,15 +1597,93 @@ private:
     }
     
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
-        std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+        //std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         
         return VK_FALSE;
     }
 };
 
+HelloTriangleApplication app;
+
+void SetMeshData(const std::vector<Vertex> &vertexData, const std::vector<uint32_t> &indexData) 
+{
+	app.data_mutex.lock();
+
+	//Clear the old vertex data
+	app.vertices.clear();
+	app.indices.clear();
+
+	//Copy the new data
+	for (int i = 0; i < vertexData.size(); i++) {
+		app.vertices.push_back(vertexData.at(i));
+	}
+	for (int i = 0; i < indexData.size(); i++) {
+		app.indices.push_back(indexData.at(i));
+	}
+
+	app.data_mutex.unlock();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Application Code
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//Fill these vectors with your results
+std::vector<Vertex> calculatedVertices;
+std::vector<uint32_t> calculatedIndices; //Needs to be a multiple of 3 (3 indices per triangle)
+
+void ApplicationEntry() 
+{
+	std::cout << "Application Entrypoint!" << std::endl;
+
+	//Do it forever
+	while (true) {
+		//Clear the last calculations
+		calculatedVertices.clear();
+		calculatedIndices.clear();
+
+		//ToDo: Do all calculations here
+		//and fill the vectors with your results
+
+
+		//Sample triangle
+		{
+			Vertex vertex1;
+			Vertex vertex2;
+			Vertex vertex3;
+
+			vertex1.pos = { 0,0,0 }; //Z is up
+			vertex1.color = { 1.0f,0.0f,0.0f };
+			vertex2.pos = { 10,0,0 };
+			vertex2.color = { 0.0f,1.0f,0.0f };
+			vertex3.pos = { 0,10,0 };
+			vertex3.color = { 0.0f,0.0f,1.0f };
+
+			calculatedVertices.push_back(vertex1);
+			calculatedVertices.push_back(vertex2);
+			calculatedVertices.push_back(vertex3);
+
+			calculatedIndices.push_back(0);
+			calculatedIndices.push_back(1);
+			calculatedIndices.push_back(2);
+		}
+
+		//Copy the data to the rendering backend
+		SetMeshData(calculatedVertices, calculatedIndices);
+	}
+
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Application Code
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 int main() {
-    HelloTriangleApplication app;
-    
+
+	std::thread applicationThread(&ApplicationEntry);
+	applicationThread.detach();
+
     try {
         app.run();
     } catch (const std::exception& e) {
@@ -1707,5 +1691,7 @@ int main() {
         return EXIT_FAILURE;
     }
     
+	//applicationThread.join();
+
     return EXIT_SUCCESS;
 }
