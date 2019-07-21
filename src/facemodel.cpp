@@ -64,7 +64,6 @@ int FaceModel::loadAverageMesh(const std::string& path, FaceMesh& mesh) {
     ropt += OpenMesh::IO::Options::VertexColor;
 
     mesh.request_vertex_colors();
-    mesh.request_vertex_normals();
 
     // assure we have vertex normals
     if (!mesh.has_vertex_colors())
@@ -76,16 +75,6 @@ int FaceModel::loadAverageMesh(const std::string& path, FaceMesh& mesh) {
     if (!OpenMesh::IO::read_mesh(mesh, path, ropt)) {
         std::cerr << "ERROR: Could not load " << path << "\n";
         return 1;
-    }
-
-    if ( !ropt.check( OpenMesh::IO::Options::VertexNormal ) )
-    {
-      // we need face normals to update the vertex normals
-      mesh.request_face_normals();
-      // let the mesh update the normals
-      mesh.update_normals();
-      // dispose the face normals, as we don't need them anymore
-      mesh.release_face_normals();
     }
 
     // The average mesh provided by Justus Thies must be scaled by a factor

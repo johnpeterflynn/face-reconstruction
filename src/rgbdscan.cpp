@@ -40,7 +40,6 @@ int RGBDScan::loadMesh(const std::string& path) {
     ropt += OpenMesh::IO::Options::VertexColor;
 
     m_scanned_mesh.request_vertex_colors();
-    m_scanned_mesh.request_vertex_normals();
 
     // assure we have vertex normals
     if (!m_scanned_mesh.has_vertex_colors())
@@ -52,16 +51,6 @@ int RGBDScan::loadMesh(const std::string& path) {
     if (!OpenMesh::IO::read_mesh(m_scanned_mesh, path, ropt)) {
         std::cerr << "ERROR: Could not load " << path << "\n";
         return 1;
-    }
-
-    if ( !ropt.check( OpenMesh::IO::Options::VertexNormal ) )
-    {
-      // we need face normals to update the vertex normals
-      m_scanned_mesh.request_face_normals();
-      // let the mesh update the normals
-      m_scanned_mesh.update_normals();
-      // dispose the face normals, as we don't need them anymore
-      m_scanned_mesh.release_face_normals();
     }
 
     return 0;
