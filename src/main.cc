@@ -375,7 +375,7 @@ int main()
 
     FaceModel face_model(MODEL_PATH);
     RGBDScan face_scan(FILENAME_SCANNED_MESH);
-    FaceSolver face_solver(0.0001, 0.004, 0.004, 6, 0.2);// percent = 0.1 works pretty okay too
+    FaceSolver face_solver(0.0001, 0.004, 0.004, 6, 0.1, false);// percent = 0.1 works pretty okay too
 
     face_scan.loadMatchIndices(); // From somewhere
 

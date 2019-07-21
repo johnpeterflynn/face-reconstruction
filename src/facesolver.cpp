@@ -80,12 +80,15 @@ private:
     const double stddev;
 };
 
-FaceSolver::FaceSolver(double geo_regularization, double huber_parameter, double knn_dist_thresh, int num_iterations, double percent_used_vertices) :
+FaceSolver::FaceSolver(double geo_regularization, double huber_parameter,
+                       double knn_dist_thresh, int num_iterations,
+                       double percent_used_vertices, bool ignore_borders) :
     m_geo_regularization(geo_regularization),
     m_huber_parameter(huber_parameter),
     m_knn_dist_thresh(knn_dist_thresh),
     m_num_iterations(num_iterations),
-    m_percent_used_vertices(percent_used_vertices)
+    m_percent_used_vertices(percent_used_vertices),
+    m_ignore_borders(ignore_borders)
 {
 }
 
@@ -136,47 +139,48 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                  && dists2(0, v_model_idx) <= m_knn_dist_thresh * m_knn_dist_thresh
                  && avg_face_mesh.color(*v_it) == optimizable_pixel_color) {
 
-            v_scan_idx = indices(0, v_model_idx);
+            int temp_idx = indices(0, v_model_idx);
 
-            // Use a loss function for non-sparse correspondence vertices.
-            // When there is a gap in the scanned mesh, many of the model vertices
-            // will match to the edges of the scanned mesh gap via KNN. The
-            // larger errors are typically bad matches so we use a loss function
-            // to reduce their effect on the total cost.
-            loss = nullptr;//new ceres::LossFunctionWrapper(
+            MyMesh::VertexHandle v_scan_handle(temp_idx);
+            if (m_ignore_borders || !scanned_mesh.is_boundary(v_scan_handle)) {
+                v_scan_idx = temp_idx;
+
+                // Use a loss function for non-sparse correspondence vertices.
+                // When there is a gap in the scanned mesh, many of the model vertices
+                // will match to the edges of the scanned mesh gap via KNN. The
+                // larger errors are typically bad matches so we use a loss function
+                // to reduce their effect on the total cost.
+                //loss = nullptr;//new ceres::LossFunctionWrapper(
                 //new ceres::HuberLoss(m_huber_parameter),
                 //ceres::TAKE_OWNERSHIP);
+            }
         }
-        // Constants in optimization
 
         if (v_scan_idx != -1) {
-
-
             MyMesh::VertexHandle v_scan_handle(v_scan_idx);
-            if (!scanned_mesh.is_boundary(v_scan_handle)){
-                // Get nearest neighbor vertex in scanned mesh
-                MyMesh::Point p3_scan_nn = scanned_mesh.point(v_scan_handle);
-                Eigen::Vector3d v3_scan_nn(p3_scan_nn[0], p3_scan_nn[1], p3_scan_nn[2]);
 
-                // Get vertex itself for average face mesh
-                MyMesh::Point p3_face_avg = avg_face_mesh.point(*v_it);
-                Eigen::Vector3d v3_face_avg(p3_face_avg[0], p3_face_avg[1], p3_face_avg[2]);
+            // Get nearest neighbor vertex in scanned mesh
+            MyMesh::Point p3_scan_nn = scanned_mesh.point(v_scan_handle);
+            Eigen::Vector3d v3_scan_nn(p3_scan_nn[0], p3_scan_nn[1], p3_scan_nn[2]);
 
-                // TODO:These are being copied but pointers should be used instead
-                Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA> shapeBasisEigenRows
-                        = shapeBasisEigen.block<3, NUM_PARAMS_ALPHA>(3 * v_model_idx, 0).cast<double>();
-                Eigen::Matrix<double, 3, NUM_PARAMS_DELTA> exprBasisEigenRows
-                        = exprBasisEigen.block<3, NUM_PARAMS_DELTA>(3 * v_model_idx, 0).cast<double>();
+            // Get vertex itself for average face mesh
+            MyMesh::Point p3_face_avg = avg_face_mesh.point(*v_it);
+            Eigen::Vector3d v3_face_avg(p3_face_avg[0], p3_face_avg[1], p3_face_avg[2]);
 
-                // For each entry in a vector v3
-                problem.AddResidualBlock(
-                            ReconstructionCostFunctor::create(v3_face_avg,v3_scan_nn,
-                                                              shapeBasisEigenRows,
-                                                              exprBasisEigenRows, weight),
-                    loss, alpha.data(), delta.data(), T_xy.data());
+            // TODO:These are being copied but pointers should be used instead
+            Eigen::Matrix<double, 3, NUM_PARAMS_ALPHA> shapeBasisEigenRows
+                    = shapeBasisEigen.block<3, NUM_PARAMS_ALPHA>(3 * v_model_idx, 0).cast<double>();
+            Eigen::Matrix<double, 3, NUM_PARAMS_DELTA> exprBasisEigenRows
+                    = exprBasisEigen.block<3, NUM_PARAMS_DELTA>(3 * v_model_idx, 0).cast<double>();
 
-                //std::cout << "Adding residual: " << v_model_idx << "/" << nVertices << "\n";
-            }
+            // For each entry in a vector v3
+            problem.AddResidualBlock(
+                        ReconstructionCostFunctor::create(v3_face_avg,v3_scan_nn,
+                                                          shapeBasisEigenRows,
+                                                          exprBasisEigenRows, weight),
+                loss, alpha.data(), delta.data(), T_xy.data());
+
+            //std::cout << "Adding residual: " << v_model_idx << "/" << nVertices << "\n";
         }
     }
 

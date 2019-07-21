@@ -16,7 +16,7 @@ class FaceSolver {
 public:
     FaceSolver(double geo_regularization, double huber_parameter,
                double knn_dist_thresh, int num_iterations,
-               double percent_used_vertices);
+               double percent_used_vertices, bool ignore_borders);
 
     void solve(FaceModel& face_model, RGBDScan face_scan, Eigen::VectorXd& alpha, Eigen::VectorXd& delta, Sophus::SE3d& T_xy);
 
@@ -44,7 +44,7 @@ private:
     double m_knn_dist_thresh; // KNN distance threshold in meters. Anything above this is not considered a match
     int m_num_iterations; // Number of iterations over both knn and then ceres
     double m_percent_used_vertices; // Percent of vertices to use in the model
-
+    bool m_ignore_borders; // If true, excludes border vertices from optimization
 };
 
 #endif // FACESOLVER_H
