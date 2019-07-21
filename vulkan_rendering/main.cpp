@@ -6,6 +6,8 @@
 //  Copyright © 2019 tum. All rights reserved.
 //
 
+#include <experimental/optional>
+/*
 #ifdef __has_include                           // Check if __has_include is present
 #  if __has_include(<optional>)    // Try with an external library
 #    include <optional>
@@ -16,6 +18,18 @@
 #  endif
 #endif
 
+*/
+#ifdef __has_include                           // Check if __has_include is present
+#  if __has_include(<boost/optional.hpp>)    // Try with an external library
+#    include <boost/optional.hpp>
+#  elif __has_include(<optional>)                // Check for a standard library
+#    include<optional>
+#  elif __has_include(<experimental/optional>) // Check for an experimental version
+#    include <experimental/optional>
+#  else                                        // Not found at all
+#     error "Missing <optional>"
+#  endif
+#endif
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -94,8 +108,8 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 }
 
 struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
+    boost::optional<uint32_t> graphicsFamily;
+    boost::optional<uint32_t> presentFamily;
     
     bool isComplete() {
         return graphicsFamily.has_value() && presentFamily.has_value();
@@ -1622,7 +1636,7 @@ void SetMeshData(const std::vector<Vertex> &vertexData, const std::vector<uint32
 	}
 
 	app.data_mutex.unlock();
-	_sleep(1);
+    sleep(1);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
