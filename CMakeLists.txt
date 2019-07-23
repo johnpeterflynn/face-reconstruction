@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 project(face_recon_2019)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
-set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3")
 add_definitions(-DPROJECT_DIR="${PROJECT_SOURCE_DIR}")
 
 include_directories(include)
