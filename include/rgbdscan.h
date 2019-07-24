@@ -10,16 +10,18 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  ScanMesh;
 
 class RGBDScan {
 public:
-    RGBDScan(const std::string& path);
+    RGBDScan(const std::string& face_path,
+             const std::string& landmark_path);
 
-    void loadMatchIndices();
     std::map<int, int> getMatchIndices();
 
 private:
-    int loadMesh(const std::string& path);
+    void loadMatchIndices(const std::string& landmark_path);
+    int loadMesh(const std::string& face_path);
 
 public:
     ScanMesh m_scanned_mesh;
+    ScanMesh m_landmarks;
     std::map<int, int> m_match_indices;
 };
 

@@ -374,10 +374,8 @@ int main()
     Sophus::SE3d T_xy;
 
     FaceModel face_model(MODEL_PATH);
-    RGBDScan face_scan(FILENAME_SCANNED_MESH);
-    FaceSolver face_solver(0.0001, 0.004, 0.004, 6, 0.1, false);// percent = 0.1 works pretty okay too
-
-    face_scan.loadMatchIndices(); // From somewhere
+    RGBDScan face_scan(FILENAME_SCANNED_MESH, FILENAME_SCANNED_LANDMARKS);
+    FaceSolver face_solver(0.0005, 0.004, 0.004, 6, 1, true);// percent = 0.1 works pretty okay too
 
     face_solver.solve(face_model, face_scan, alpha, delta, T_xy);
 
