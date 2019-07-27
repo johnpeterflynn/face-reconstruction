@@ -19,79 +19,88 @@ RGBDScan::RGBDScan(const std::string& face_path,
 }
 
 void RGBDScan::loadMatchIndices(const std::string& landmark_path) {
+
     OpenMesh::IO::Options ropt;
 
     if (!OpenMesh::IO::read_mesh(m_landmarks, landmark_path, ropt)) {
         std::cerr << "ERROR: Could not load " << landmark_path << "\n";
+
+        // Just use Justus' face
+        m_match_indices[12280] = 9734;
+        m_match_indices[4280] = 10045;
+        m_match_indices[8319] = 12539;
+        m_match_indices[48246] = 19679;
         return;
     }
+    else {
 
-    // Load face vertices
-    Eigen::MatrixXf face_vertices(3, m_scanned_mesh.n_vertices());
-    for (MyMesh::VertexIter v_it = m_scanned_mesh.vertices_begin(); v_it != m_scanned_mesh.vertices_end(); ++v_it)
-    {
-      MyMesh::Point p3 = m_scanned_mesh.point(*v_it);
-      Eigen::Vector3f v3(p3[0], p3[1], p3[2]);
+        // Load face vertices
+        Eigen::MatrixXf face_vertices(3, m_scanned_mesh.n_vertices());
+        for (MyMesh::VertexIter v_it = m_scanned_mesh.vertices_begin(); v_it != m_scanned_mesh.vertices_end(); ++v_it)
+        {
+          MyMesh::Point p3 = m_scanned_mesh.point(*v_it);
+          Eigen::Vector3f v3(p3[0], p3[1], p3[2]);
 
-      face_vertices.col(v_it->idx()) = v3;
-    }
+          face_vertices.col(v_it->idx()) = v3;
+        }
 
-    // Load Landmark vertices
-    Eigen::MatrixXf landmark_vertices(3, m_landmarks.n_vertices());
-    for (MyMesh::VertexIter v_it = m_landmarks.vertices_begin(); v_it != m_landmarks.vertices_end(); ++v_it)
-    {
-      MyMesh::Point p3 = m_landmarks.point(*v_it);
-      Eigen::Vector3f v3(p3[0], p3[1], p3[2]);
-      // std::cout << p3[0] << "\n";
+        // Load Landmark vertices
+        Eigen::MatrixXf landmark_vertices(3, m_landmarks.n_vertices());
+        for (MyMesh::VertexIter v_it = m_landmarks.vertices_begin(); v_it != m_landmarks.vertices_end(); ++v_it)
+        {
+          MyMesh::Point p3 = m_landmarks.point(*v_it);
+          Eigen::Vector3f v3(p3[0], p3[1], p3[2]);
+          // std::cout << p3[0] << "\n";
 
-      landmark_vertices.col(v_it->idx()) = v3;
-    }
+          landmark_vertices.col(v_it->idx()) = v3;
+        }
 
-    // Get Closest Neighbor
-    const int K = 1;
+        // Get Closest Neighbor
+        const int K = 1;
 
-    // Add relevant model indices
-    std::vector<int> model_indices;
-    model_indices.push_back(8288);
-    model_indices.push_back(8320);
-    model_indices.push_back(11039);
-    model_indices.push_back(12273);
-    model_indices.push_back(10214);
-    model_indices.push_back(14346);
-    model_indices.push_back(4275);
-    model_indices.push_back(5620);
-    model_indices.push_back(2089);
-    model_indices.push_back(4287);
-    model_indices.push_back(12156);
+        // Add relevant model indices
+        std::vector<int> model_indices;
+        model_indices.push_back(8288);
+        model_indices.push_back(8320);
+        model_indices.push_back(11039);
+        model_indices.push_back(12273);
+        model_indices.push_back(10214);
+        model_indices.push_back(14346);
+        model_indices.push_back(4275);
+        model_indices.push_back(5620);
+        model_indices.push_back(2089);
+        model_indices.push_back(4287);
+        model_indices.push_back(12156);
 
-    int num_correspondences = model_indices.size();
+        int num_correspondences = model_indices.size();
 
-    // Add relevant landmark indices
-    Eigen::MatrixXf q(3, num_correspondences);
-    q.col(0) = landmark_vertices.col(11);
-    q.col(1) = landmark_vertices.col(21);
-    q.col(2) = landmark_vertices.col(145);
-    q.col(3) = landmark_vertices.col(244);
-    q.col(4) = landmark_vertices.col(329);
-    q.col(5) = landmark_vertices.col(470);
-    q.col(6) = landmark_vertices.col(731);
-    q.col(7) = landmark_vertices.col(763);
-    q.col(8) = landmark_vertices.col(1010);
-    q.col(9) = landmark_vertices.col(1090);
-    q.col(10) = landmark_vertices.col(1105);
+        // Add relevant landmark indices
+        Eigen::MatrixXf q(3, num_correspondences);
+        q.col(0) = landmark_vertices.col(11);
+        q.col(1) = landmark_vertices.col(21);
+        q.col(2) = landmark_vertices.col(145);
+        q.col(3) = landmark_vertices.col(244);
+        q.col(4) = landmark_vertices.col(329);
+        q.col(5) = landmark_vertices.col(470);
+        q.col(6) = landmark_vertices.col(731);
+        q.col(7) = landmark_vertices.col(763);
+        q.col(8) = landmark_vertices.col(1010);
+        q.col(9) = landmark_vertices.col(1090);
+        q.col(10) = landmark_vertices.col(1105);
 
-    Nabo::NNSearchF* nns = Nabo::NNSearchF::createKDTreeLinearHeap(face_vertices);
-    Eigen::MatrixXi indices(K,num_correspondences);
-    Eigen::MatrixXf dists2(K,num_correspondences);
+        Nabo::NNSearchF* nns = Nabo::NNSearchF::createKDTreeLinearHeap(face_vertices);
+        Eigen::MatrixXi indices(K,num_correspondences);
+        Eigen::MatrixXf dists2(K,num_correspondences);
 
-    // ALLOW_SELF_MATCH appears to be necessary to match vertices that are
-    // exactly the same.
-    nns->knn(q, indices, dists2, K, 0, Nabo::NNSearchF::ALLOW_SELF_MATCH);
-    //std::cout << indices << "\n";
-    delete nns;
+        // ALLOW_SELF_MATCH appears to be necessary to match vertices that are
+        // exactly the same.
+        nns->knn(q, indices, dists2, K, 0, Nabo::NNSearchF::ALLOW_SELF_MATCH);
+        //std::cout << indices << "\n";
+        delete nns;
 
-    for (int i = 0; i < num_correspondences; i++) {
-        m_match_indices[model_indices[i]] = indices(0, i);
+        for (int i = 0; i < num_correspondences; i++) {
+            m_match_indices[model_indices[i]] = indices(0, i);
+        }
     }
 
     // Dummy data for now
@@ -105,12 +114,6 @@ void RGBDScan::loadMatchIndices(const std::string& landmark_path) {
     m_match_indices[2881] = 2881;
     m_match_indices[50000] = 50000;
     m_match_indices[31000] = 31000;
-*/
-/*
-    m_match_indices[12280] = 9734;
-    m_match_indices[4280] = 10045;
-    m_match_indices[8319] = 12539;
-    m_match_indices[48246] = 19679;
 */
 }
 
@@ -130,12 +133,14 @@ int RGBDScan::loadMesh(const std::string& path) {
     if (!m_scanned_mesh.has_vertex_colors())
     {
       std::cerr << "ERROR: Standard vertex property 'Colors' not available for scanned mesh!\n";
-      return 1;
+      //return 1;
     }
 
-    if (!OpenMesh::IO::read_mesh(m_scanned_mesh, path, ropt)) {
-        std::cerr << "ERROR: Could not load " << path << "\n";
-        return 1;
+    if (OpenMesh::IO::read_mesh(m_scanned_mesh, path, ropt)) {
+        std::cout << "Loaded " << path << "\n";
+    }
+    else if (OpenMesh::IO::read_mesh(m_scanned_mesh, "../testData/kinectdata.off", ropt)) {
+        std::cout << "Loaded " << "../testData/kinectdata.off" << "\n";
     }
 
     return 0;
