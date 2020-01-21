@@ -1,0 +1,3 @@
+Archive contains code for our face optimizer and vulkan rendering. Two subfolders not included are called "testData" and "models" since they are collectively several hundred Mb in size. testData stored face scans & sparse correspondence points and models stored the shape and espression basis. These files are required to run this program and can be provided on request.
+
+NOTE: We can also grant access to our git repo found here: https://gitlab.lrz.de/ge56cug/face_recon_2019.git
