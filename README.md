@@ -14,11 +14,11 @@ face-reconstruction uses [CMake](https://cmake.org/) as a build system with the 
 
 In addition, a face scan and face landmarks .ply files are expected from Kinect HD Face in the scan subfolder (see config.h).
 
-##Notes
+## Notes
 This repository does not include the basis for face geometry and expression.
 
 
-##References
+## References
 1. Justus Thies, Michael Zollhöfer, Matthias Nießner, Levi Valgaerts, Marc Stamminger,
 and Christian Theobalt. 2015. Real-time Expression Transfer for Facial Reenactment.
 ACM TOG 34, 6, Article 183 (2015)
