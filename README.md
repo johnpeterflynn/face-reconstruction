@@ -1,6 +1,6 @@
 # Face Reconstruction from Kinect Scan
 
-This is a reproduction of part of the work of Dr. Justus Thies in his paper _Real-time Expression Transfer for Facial Reenactment_ [1] to reconstruct high resolution facial expression and geometry form a Kinect face scan.
+This is a reproduction of part of the work of Dr. Justus Thies in his paper _Real-time Expression Transfer for Facial Reenactment_ [1] to reconstruct high resolution facial expression and geometry (gray) form a Kinect face scan (red).
 
 ![](/content/example.png)
 
@@ -12,7 +12,7 @@ face-reconstruction uses [CMake](https://cmake.org/) as a build system with the 
 * [Sophus](https://github.com/strasdat/Sophus)
 * [nabo](https://github.com/ethz-asl/libnabo)
 
-In addition, a face scan and face landmarks .ply files are expected from Kinect HD Face in the scan subfolder (see config.h).
+In addition, face scan and face landmark .ply files are expected from Kinect HD Face in the scan subfolder (see config.h).
 
 ## Notes
 This repository does not include the basis for face geometry and expression.
