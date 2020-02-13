@@ -92,7 +92,7 @@ FaceSolver::FaceSolver(double geo_regularization, double huber_parameter,
 {
 }
 
-void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
+void FaceSolver::fitMatchingVertices(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
               const Eigen::MatrixXi& indices, const Eigen::MatrixXf& dists2,
               const std::map<int, int>& match_indices,
               const Eigen::MatrixXf& shapeBasisEigen,
@@ -109,7 +109,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                               new Sophus::test::LocalParameterizationSE3);
 
     // The black average face model has pixels in black to be optimized over
-    MyMesh::Color optimizable_pixel_color(0, 0, 0);
+    static const MyMesh::Color optimizable_pixel_color(0, 0, 0);
 
     for (MyMesh::VertexIter v_it = avg_face_mesh.vertices_begin();
          v_it != avg_face_mesh.vertices_end(); ++v_it)
@@ -145,6 +145,7 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
             if (m_ignore_borders || !scanned_mesh.is_boundary(v_scan_handle)) {
                 v_scan_idx = temp_idx;
 
+                // UPDATE: Disabled for now
                 // Use a loss function for non-sparse correspondence vertices.
                 // When there is a gap in the scanned mesh, many of the model vertices
                 // will match to the edges of the scanned mesh gap via KNN. The
@@ -179,8 +180,6 @@ void FaceSolver::runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mes
                                                           shapeBasisEigenRows,
                                                           exprBasisEigenRows, weight),
                 loss, alpha.data(), delta.data(), T_xy.data());
-
-            //std::cout << "Adding residual: " << v_model_idx << "/" << nVertices << "\n";
         }
     }
 
@@ -223,8 +222,6 @@ void FaceSolver::calculate_knn(const Eigen::MatrixXf& M, const Eigen::MatrixXf& 
     const int K = indices.rows();
 
     Nabo::NNSearchF* nns = Nabo::NNSearchF::createKDTreeLinearHeap(M);
-    //Eigen::VectorXi indices(K);
-    //Eigen::MatrixXf dists2(K, q.cols());
 
     // ALLOW_SELF_MATCH appears to be necessary to match vertices that are
     // exactly the same.
@@ -273,36 +270,32 @@ void FaceSolver::solve(FaceModel& face_model, RGBDScan face_scan,
     Eigen::MatrixXi indices(0, 0);
     Eigen::MatrixXf dists2(K, nVertices);
 
+    std::cout << "Optimization starting: " << std::endl;
+
     // First run ceres only on the correspondence points to get close to the face.
-    std::cout << "Running ceres without KNN: " << std::endl;
-    runCeres(face_model.m_avg_opt_mesh, face_scan.m_scanned_mesh, indices, dists2, match_indices,
+    std::cout << "Fitting correspondence points: " << std::endl;
+    fitMatchingVertices(face_model.m_avg_opt_mesh, face_scan.m_scanned_mesh, indices, dists2, match_indices,
              face_model.shapeBasisEigen, face_model.exprBasisEigen,
              face_model.shapeDevEigen, face_model.exprDevEigen,
              false, 20, alpha, delta, T_xy);
 
-    std::cout << "Ceres finished: " << std::endl;
-
     // Next run ceres using the KNN matches
-    std::cout << "Optimization starting: " << std::endl;
+    std::cout << "Fitting KNN matches: " << std::endl;
     for (int i = 0; i < m_num_iterations; i++) {
         // Synthesize the latest model for the KNN.
         MyMesh synth_mesh = face_model.synthesizeModel(alpha, delta, T_xy);
         knn_model_to_scan(synth_mesh, face_scan.m_scanned_mesh, K, indices, dists2);
 
         // Replace KNN mathes with manually selected matches
-        //std::set<int> matches;
         for (auto entry : match_indices) {
-            //matches.insert(entry.first);
             indices(0, entry.first) = entry.second;
         }
 
-        std::cout << "Running ceres: " << std::endl;
-        runCeres(face_model.m_avg_opt_mesh, face_scan.m_scanned_mesh, indices, dists2, match_indices,
+        std::cout << "Iteration " << (i + 1) << "/" << m_num_iterations << std::endl;
+        fitMatchingVertices(face_model.m_avg_opt_mesh, face_scan.m_scanned_mesh, indices, dists2, match_indices,
                  face_model.shapeBasisEigen, face_model.exprBasisEigen,
                  face_model.shapeDevEigen, face_model.exprDevEigen,
                  true, 1, alpha, delta, T_xy);
-
-        std::cout << "Ceres finished: " << std::endl;
     }
 
     std::cout << "Optimization finished: " << std::endl;

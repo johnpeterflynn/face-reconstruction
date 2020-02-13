@@ -10,8 +10,9 @@ constexpr int NUM_PARAMS_ALPHA = 40;
 constexpr int NUM_PARAMS_DELTA = 30;
 
 constexpr const char* MODEL_PATH = "../models";
-constexpr const char* FILENAME_SCANNED_MESH = "../testData/Face_Raw.ply";
-constexpr const char* FILENAME_SCANNED_LANDMARKS = "../testData/HD_Face.ply";
+constexpr const char* FILENAME_SCANNED_MESH = "../scan/Face_Raw.ply";
+constexpr const char* FILENAME_SCANNED_LANDMARKS = "../scan/HD_Face.ply";
+constexpr const char* FILENAME_DEFAULT_SCANNED_MESG = "../scan/kinectdata.off";
 
 constexpr const char* FILENAME_AVG_MESH = "../models/averageMesh.off";
 constexpr const char* FILENAME_AVG_OPT_MESH = "../models/averageMesh_blackface.off";

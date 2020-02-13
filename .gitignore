@@ -1,5 +1,5 @@
 vulkan_rendering/cmake_build/
 build
 models
-testData
+scan
 CMakeLists.txt.user

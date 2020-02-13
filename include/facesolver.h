@@ -27,7 +27,7 @@ private:
                           int K, Eigen::MatrixXi& indices, Eigen::MatrixXf& dists2);
     void meshToMatrix(const MyMesh& mesh, Eigen::MatrixXf& M_out) ;
 
-    void runCeres(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
+    void fitMatchingVertices(const MyMesh& avg_face_mesh, const MyMesh& scanned_mesh,
                   const Eigen::MatrixXi& indices, const Eigen::MatrixXf& dists2,
                   const std::map<int, int>& match_indices,
                   const Eigen::MatrixXf& shapeBasisEigen,

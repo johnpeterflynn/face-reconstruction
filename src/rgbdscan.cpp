@@ -7,6 +7,8 @@
 
 #include "nabo/nabo.h"
 
+#include "config.h"
+
 typedef OpenMesh::TriMesh_ArrayKernelT<> MyMesh;
 
 
@@ -22,18 +24,7 @@ void RGBDScan::loadMatchIndices(const std::string& landmark_path) {
 
     OpenMesh::IO::Options ropt;
 
-    if (!OpenMesh::IO::read_mesh(m_landmarks, landmark_path, ropt)) {
-        std::cerr << "ERROR: Could not load " << landmark_path << "\n";
-
-        // Just use Justus' face
-        m_match_indices[12280] = 9734;
-        m_match_indices[4280] = 10045;
-        m_match_indices[8319] = 12539;
-        m_match_indices[48246] = 19679;
-        return;
-    }
-    else {
-
+    if (OpenMesh::IO::read_mesh(m_landmarks, landmark_path, ropt)) {
         // Load face vertices
         Eigen::MatrixXf face_vertices(3, m_scanned_mesh.n_vertices());
         for (MyMesh::VertexIter v_it = m_scanned_mesh.vertices_begin(); v_it != m_scanned_mesh.vertices_end(); ++v_it)
@@ -57,6 +48,13 @@ void RGBDScan::loadMatchIndices(const std::string& landmark_path) {
 
         // Get Closest Neighbor
         const int K = 1;
+
+        // Kinect HD Face fits a landmark model to a face scan. A subset of those
+        // landmarks are manually selected that correspond strongly with pixels
+        // on the average mesh model (for example, landmarks at the edges of the
+        // lips, eyes, chin and top of forehead. Since the Kinect HD face and
+        // average mesh model are always the same, this correspondence only
+        // needs to be selected once.
 
         // Add relevant model indices
         std::vector<int> model_indices;
@@ -102,19 +100,18 @@ void RGBDScan::loadMatchIndices(const std::string& landmark_path) {
             m_match_indices[model_indices[i]] = indices(0, i);
         }
     }
+    else {
+        // NOTE: This defaults to hard-coded demo mode for Justus' face model.
 
-    // Dummy data for now
-/*
-    m_match_indices[12280] = 12280;
-    m_match_indices[4280] = 4280;
-    m_match_indices[8319] = 8319;
-    m_match_indices[48246] = 48246;
+        std::cerr << "ERROR: Could not load " << landmark_path << "\n";
 
-    m_match_indices[482] = 482;
-    m_match_indices[2881] = 2881;
-    m_match_indices[50000] = 50000;
-    m_match_indices[31000] = 31000;
-*/
+        // WARNING: Indices for the Justus' face model. Not generalized
+        m_match_indices[12280] = 9734;
+        m_match_indices[4280] = 10045;
+        m_match_indices[8319] = 12539;
+        m_match_indices[48246] = 19679;
+        return;
+    }
 }
 
 std::map<int, int> RGBDScan::getMatchIndices() {
@@ -139,8 +136,8 @@ int RGBDScan::loadMesh(const std::string& path) {
     if (OpenMesh::IO::read_mesh(m_scanned_mesh, path, ropt)) {
         std::cout << "Loaded " << path << "\n";
     }
-    else if (OpenMesh::IO::read_mesh(m_scanned_mesh, "../testData/kinectdata.off", ropt)) {
-        std::cout << "Loaded " << "../testData/kinectdata.off" << "\n";
+    else if (OpenMesh::IO::read_mesh(m_scanned_mesh, FILENAME_DEFAULT_SCANNED_MESG, ropt)) {
+        std::cout << "Loaded " << FILENAME_DEFAULT_SCANNED_MESG << "\n";
     }
 
     return 0;
