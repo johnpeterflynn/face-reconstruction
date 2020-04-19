@@ -1,6 +1,8 @@
 # Face Reconstruction from Kinect Scan
 
-![](/content/basic-anim.gif)
+<p align="center">
+  <img height="400" src="/content/basic-anim.gif">
+</p>
 
 This is a reproduction of part of the work of Dr. Justus Thies in his paper _Real-time Expression Transfer for Facial Reenactment_ [1] to reconstruct high resolution facial expression and geometry (gray) form a Kinect face scan (red).
 
