@@ -17,7 +17,8 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 find_package(Ceres REQUIRED)
 include_directories(${CERES_INCLUDE_DIRS})
 
-find_package( OpenCV 3 QUIET COMPONENTS core features2d)
+# OpenCV
+find_package(OpenCV 3 QUIET COMPONENTS core features2d)
 if (OpenCV_FOUND)
   message(STATUS "Found OpenCV 3 headers in: ${OpenCV_INCLUDE_DIRS}")
 else()
@@ -28,7 +29,12 @@ else()
   message(STATUS "Found OpenCV 2 headers in: ${OpenCV_INCLUDE_DIRS}")
 endif()
 
+# Nabo
 find_package(nabo)
+
+# Boost
+find_package(Boost 1.40 COMPONENTS program_options REQUIRED)
+include_directories(${Boost_INCLUDE_DIR})
 
 set(SOURCES
     src/main.cc
@@ -37,4 +43,4 @@ set(SOURCES
     src/facesolver.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
-target_link_libraries(${PROJECT_NAME} OpenMeshCore ${OpenCV_LIBS} nabo ceres)
+target_link_libraries(${PROJECT_NAME} OpenMeshCore ${OpenCV_LIBS} nabo ceres ${Boost_LIBRARIES})
