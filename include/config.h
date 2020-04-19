@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <string>
+
 constexpr int NumberOfEigenvectors = 160;
 constexpr int NumberOfExpressions = 76;
 constexpr int nVertices = 53490;
@@ -9,19 +11,21 @@ constexpr int nVertices = 53490;
 constexpr int NUM_PARAMS_ALPHA = 40;
 constexpr int NUM_PARAMS_DELTA = 30;
 
-constexpr const char* MODEL_PATH = "/models";
-constexpr const char* FILENAME_SCANNED_MESH = "/scan/Face_Raw.ply";
-constexpr const char* FILENAME_SCANNED_LANDMARKS = "/scan/HD_Face.ply";
-constexpr const char* FILENAME_DEFAULT_SCANNED_MESG = "data/scan/kinectdata.off";
+const std::string PATH_SCANNED_MESH = "Face_Raw.ply";
+const std::string PATH_SCANNED_LANDMARKS = "HD_Face.ply";
+const std::string PATH_DEFAULT_SCANNED_MESG = "scan/kinectdata_example.off";
 
-constexpr const char* FILENAME_AVG_MESH = "data/models/averageMesh.off";
-constexpr const char* FILENAME_AVG_OPT_MESH = "data/models/averageMesh_blackface.off";
-constexpr const char* FILENAME_OUT_SYNTH_MESH = "synthesizedMesh.off";
+const std::string PATH_MESH = "mesh/";
+const std::string PATH_BASIS = "basis/";
 
-constexpr const char* filenameBasisShape = "ShapeBasis.matrix";
-constexpr const char* filenameBasisExpression = "ExpressionBasis.matrix";
-constexpr const char* filenameStdDevShape = "StandardDeviationShape.vec";
-constexpr const char* filenameStdDevExpression = "StandardDeviationExpression.vec";
+const std::string FILENAME_AVG_MESH = PATH_MESH + "averageMesh.off";
+const std::string FILENAME_AVG_OPT_MESH = PATH_MESH + "averageMesh_blackface.off";
+const std::string PATH_OUT_SYNTH_MESH = "synthesizedMesh.off";
+
+const std::string FILENAME_BASIS_SHAPE = PATH_BASIS + "ShapeBasis.matrix";
+const std::string FILENAME_BASIS_EXPRESSION = PATH_BASIS + "ExpressionBasis.matrix";
+const std::string FILENAME_STDDEV_SHAPE = PATH_BASIS + "StandardDeviationShape.vec";
+const std::string FILENAME_STDDEV_EXPRESSION = PATH_BASIS + "StandardDeviationExpression.vec";
 
 
 #endif // CONFIG_H

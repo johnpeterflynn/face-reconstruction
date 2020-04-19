@@ -15,7 +15,8 @@
 namespace po = boost::program_options;
 
 
-void run(FaceSolver &face_solver, RGBDScan &face_scan, FaceModel &face_model)
+void run(FaceSolver &face_solver, RGBDScan &face_scan, FaceModel &face_model,
+         const std::string filename_out)
 {
     Eigen::VectorXd alpha = Eigen::VectorXd::Zero(NumberOfEigenvectors);
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(NumberOfExpressions);
@@ -27,7 +28,7 @@ void run(FaceSolver &face_solver, RGBDScan &face_scan, FaceModel &face_model)
     auto stop = std::chrono::high_resolution_clock::now();
 
     std::cout << "Writing synthesized model to file\n";
-    face_model.writeSynthesizedModel(alpha, delta, T_xy);
+    face_model.writeSynthesizedModel(filename_out, alpha, delta, T_xy);
 
     // Print alpha (geometry parameter we solved for)
     //std::cout << alpha << std::endl;
@@ -54,13 +55,20 @@ int main(int argc, char *argv[]) {
     // Declare the required options.
     po::options_description required("Required options");
     required.add_options()
-        ("data-path", po::value<std::string>(), "path to data folder")
+        ("scan", po::value<std::string>(), "path to scan file (.off)")
+        ("corr", po::value<std::string>(), "path to corr file (.corr)")
         ("out", po::value<std::string>(), "output name of synthesized mesh")
     ;
 
+    // Declare the optional options.
+    po::options_description optional("Optional");
+    optional.add_options()
+        ("model-path", po::value<std::string>(), "path to model contents (basis, mesh, landmarks)")
+    ;
+
     // Declare the supported options.
-    po::options_description config("FaceSolver");
-    config.add_options()
+    po::options_description face("FaceSolver");
+    face.add_options()
         ("huber", po::value<double>(), "set Huber parameter")
         ("geo-reg", po::value<double>(), "set geometric regulatization constant")
         ("knn-dist-thresh", po::value<double>(), "set threshold to accept scan-model matches in meters")
@@ -69,6 +77,8 @@ int main(int argc, char *argv[]) {
         ("ignore-borders", po::value<bool>(), "ignore borders of scan")
     ;
 
+    po::options_description config("Config options");
+    config.add(face).add(optional);
     po::options_description visible("Allowed options");
     visible.add(generic).add(required).add(config);
 
@@ -82,26 +92,31 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (vm.count("data-path")) {
+    if (vm.count("scan")) {
      //<< vm["data-path"].as<int>() << ".\n";
     } else {
-        std::cout << "Data path not set.\n";
+        std::cout << "Scan file not set.\n";
+        return 1;
     }
 
     if (vm.count("out")) {
      //<< vm["data-path"].as<int>() << ".\n";
     } else {
         std::cout << "Output file not set.\n";
+        return 1;
     }
 
-    FaceModel face_model(vm["data-path"].as<std::string>() + MODEL_PATH);
-    RGBDScan face_scan(vm["data-path"].as<std::string>() + FILENAME_SCANNED_MESH, vm["data-path"].as<std::string>() + FILENAME_SCANNED_LANDMARKS);
+    std::cout << "A: " << vm["model-path"].as<std::string>() << "\n";
+    FaceModel face_model(vm["model-path"].as<std::string>());
+    std::cout << "B\n";
+    RGBDScan face_scan(vm["scan"].as<std::string>() + PATH_SCANNED_MESH, vm["scan"].as<std::string>() + PATH_SCANNED_LANDMARKS);
+    std::cout << "C\n";
     FaceSolver face_solver(vm["geo-reg"].as<double>(), vm["huber"].as<double>(),
             vm["knn-dist-thresh"].as<double>(), vm["num-iters"].as<int>(),
             vm["frac-used-vertices"].as<double>(),
             vm["ignore-borders"].as<bool>());
 
-    run(face_solver, face_scan, face_model);
+    run(face_solver, face_scan, face_model, vm["out"].as<std::string>());
 
     return 0;
 }

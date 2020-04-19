@@ -134,8 +134,8 @@ int RGBDScan::loadMesh(const std::string& path) {
     if (OpenMesh::IO::read_mesh(m_scanned_mesh, path, ropt)) {
         std::cout << "Loaded " << path << "\n";
     }
-    else if (OpenMesh::IO::read_mesh(m_scanned_mesh, FILENAME_DEFAULT_SCANNED_MESG, ropt)) {
-        std::cout << "Loaded " << FILENAME_DEFAULT_SCANNED_MESG << "\n";
+    else if (OpenMesh::IO::read_mesh(m_scanned_mesh, PATH_DEFAULT_SCANNED_MESG, ropt)) {
+        std::cout << "Loaded " << PATH_DEFAULT_SCANNED_MESG << "\n";
     }
 
     return 0;

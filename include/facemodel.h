@@ -27,7 +27,8 @@ public:
     FaceMesh synthesizeModel(const Eigen::VectorXd& alpha,
                              const Eigen::VectorXd& delta,
                              const Sophus::SE3d& T_xy);
-    int writeSynthesizedModel(const Eigen::VectorXd& alpha,
+    int writeSynthesizedModel(const std::string filename_out,
+                              const Eigen::VectorXd& alpha,
                               const Eigen::VectorXd& delta,
                               const Sophus::SE3d& T_xy);
 

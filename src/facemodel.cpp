@@ -20,20 +20,24 @@ FaceModel::FaceModel(const std::string &path)
 }
 
 void FaceModel::load(const std::string &path) {
-    std::string pathBasisShape = path + "/" + filenameBasisShape;
-    std::string pathBasisExpression = path + "/" + filenameBasisExpression;
-    std::string pathStdDevShape = path + "/" + filenameStdDevShape;
-    std::string pathStdDevExpression = path + "/" + filenameStdDevExpression;
+    const std::string path_basis_shape = path + FILENAME_BASIS_SHAPE;
+    const std::string path_basis_expression = path + FILENAME_BASIS_EXPRESSION;
+    const std::string path_stddev_shape = path + FILENAME_STDDEV_SHAPE;
+    const std::string path_stddev_expression = path + FILENAME_STDDEV_EXPRESSION;
+
+    const std::string path_avg_mesh = path + FILENAME_AVG_MESH;
+    const std::string path_avg_opt_mesh = path + FILENAME_AVG_OPT_MESH;
+
 
     auto shapeBasisCPU = new float4[nVertices * NumberOfEigenvectors];
     auto expressionBasisCPU = new float4[nVertices * NumberOfExpressions];
-    loadVector(pathBasisShape, (float*)shapeBasisCPU, 4 * nVertices * NumberOfEigenvectors);
-    loadVector(pathBasisExpression, (float*)expressionBasisCPU, 4 * nVertices * NumberOfExpressions);
+    loadVector(path_basis_shape, (float*)shapeBasisCPU, 4 * nVertices * NumberOfEigenvectors);
+    loadVector(path_basis_expression, (float*)expressionBasisCPU, 4 * nVertices * NumberOfExpressions);
 
     auto shapeDevCPU = new float[NumberOfEigenvectors];
     auto expressionDevCPU = new float[NumberOfExpressions];
-    loadVector(pathStdDevShape, shapeDevCPU, NumberOfEigenvectors);
-    loadVector(pathStdDevExpression, expressionDevCPU, NumberOfExpressions);
+    loadVector(path_stddev_shape, shapeDevCPU, NumberOfEigenvectors);
+    loadVector(path_stddev_expression, expressionDevCPU, NumberOfExpressions);
 
     convertBasis(shapeBasisEigen, nVertices, NumberOfEigenvectors, shapeBasisCPU);
     convertBasis(exprBasisEigen, nVertices, NumberOfExpressions, expressionBasisCPU);
@@ -41,8 +45,8 @@ void FaceModel::load(const std::string &path) {
     convertDeviations(shapeDevEigen, NumberOfEigenvectors, shapeDevCPU);
     convertDeviations(exprDevEigen, NumberOfExpressions, expressionDevCPU);
 
-    loadAverageMesh(FILENAME_AVG_MESH, m_avg_mesh);
-    loadAverageMesh(FILENAME_AVG_OPT_MESH, m_avg_opt_mesh);
+    loadAverageMesh(path_avg_mesh, m_avg_mesh);
+    loadAverageMesh(path_avg_opt_mesh, m_avg_opt_mesh);
 
     delete[] shapeBasisCPU;
     delete[] expressionBasisCPU;
@@ -118,7 +122,8 @@ FaceModel::FaceMesh FaceModel::synthesizeModel(const Eigen::VectorXd& alpha,
     return synth_mesh;
 }
 
-int FaceModel::writeSynthesizedModel(const Eigen::VectorXd& alpha,
+int FaceModel::writeSynthesizedModel(const std::string filename_out,
+                                     const Eigen::VectorXd& alpha,
                                      const Eigen::VectorXd& delta,
                                      const Sophus::SE3d& T_xy) {
     OpenMesh::IO::Options wopt;
@@ -126,11 +131,13 @@ int FaceModel::writeSynthesizedModel(const Eigen::VectorXd& alpha,
 
     FaceMesh synth_mesh = synthesizeModel(alpha, delta, T_xy);
 
+    std::cout << "Wriring file: " << filename_out << "\n";
+
     try
     {
-      if (!OpenMesh::IO::write_mesh(synth_mesh, FILENAME_OUT_SYNTH_MESH, wopt))
+      if (!OpenMesh::IO::write_mesh(synth_mesh, filename_out, wopt))
       {
-        std::cerr << "Cannot write mesh to file '" << FILENAME_OUT_SYNTH_MESH
+        std::cerr << "Cannot write mesh to file '" << filename_out
                   << "'" << std::endl;
       }
     }
