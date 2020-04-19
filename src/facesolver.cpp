@@ -2,8 +2,8 @@
 
 #include <ceres/ceres.h>
 #include "nabo/nabo.h"
-
 #include "local_parameterization_se3.hpp"
+
 #include "config.h"
 
 

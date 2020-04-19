@@ -1,16 +1,13 @@
-#include "pch.h"
 #include <iostream>
-
 #include <string>
-#include <Eigen/Dense>
 #include <vector>
-
-#include <OpenMesh/Core/IO/MeshIO.hh>
-#include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
-typedef OpenMesh::TriMesh_ArrayKernelT<>  MyMesh;
-
 #include <chrono>
 
+#include <Eigen/Dense>
+#include <OpenMesh/Core/IO/MeshIO.hh>
+#include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
+
+#include "pch.h"
 #include "facemodel.h"
 #include "rgbdscan.h"
 #include "facesolver.h"

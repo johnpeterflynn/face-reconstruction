@@ -1,10 +1,8 @@
 #include "rgbdscan.h"
 
 #include <Eigen/Dense>
-
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Tools/Utils/getopt.h>
-
 #include "nabo/nabo.h"
 
 #include "config.h"
