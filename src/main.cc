@@ -99,6 +99,13 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    if (vm.count("corr")) {
+     //<< vm["data-path"].as<int>() << ".\n";
+    } else {
+        std::cout << "Corr file not set.\n";
+        return 1;
+    }
+
     if (vm.count("out")) {
      //<< vm["data-path"].as<int>() << ".\n";
     } else {
@@ -106,11 +113,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::cout << "A: " << vm["model-path"].as<std::string>() << "\n";
     FaceModel face_model(vm["model-path"].as<std::string>());
-    std::cout << "B\n";
-    RGBDScan face_scan(vm["scan"].as<std::string>() + PATH_SCANNED_MESH, vm["scan"].as<std::string>() + PATH_SCANNED_LANDMARKS);
-    std::cout << "C\n";
+    RGBDScan face_scan(vm["scan"].as<std::string>(), vm["corr"].as<std::string>());
     FaceSolver face_solver(vm["geo-reg"].as<double>(), vm["huber"].as<double>(),
             vm["knn-dist-thresh"].as<double>(), vm["num-iters"].as<int>(),
             vm["frac-used-vertices"].as<double>(),
