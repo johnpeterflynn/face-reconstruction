@@ -1,12 +1,42 @@
 # Face Reconstruction from Kinect Scan
 
-This is a reproduction of part of the work of Dr. Justus Thies in his paper _Real-time Expression Transfer for Facial Reenactment_ [1] to reconstruct high resolution facial expression and geometry (gray) form a Kinect face scan (red). We fit a parametric face model to incoming RGB-D scans taken with a Kinect sensor.
-
 ![](/content/basic-anim.gif)
+
+This is a reproduction of part of the work of Dr. Justus Thies in his paper _Real-time Expression Transfer for Facial Reenactment_ [1] to reconstruct high resolution facial expression and geometry (gray) form a Kinect face scan (red).
+
+
+
+We fit a face model parameterized by face geometry, expression and pose to an RGB-D scan.
 
 ![](/content/frac-vertices-time.png)
 
 
+
+## Build and Run
+
+To build, clone the repository and run the following in the root directory.
+
+```
+mkdir build & cd build
+cmake ..
+make
+```
+
+
+
+To run a reconstruction you must specify a scan file, correspondence file and output file. Example run:
+
+```
+face_recon_2019 --scan scan/kd_example.off --corr scan/sparse.corr --out synth.off
+```
+
+
+
+There are additional options to adjust optimization parameters including fraction of vertices to sample and number of iterations. For a full list of options with their descriptions, run:
+
+```
+face_recon_2019 --help
+```
 
 
 
