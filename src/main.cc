@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     required.add_options()
         ("scan", po::value<std::string>(), "path to scan file (.off)")
         ("corr", po::value<std::string>(), "path to corr file (.corr)")
-        ("out", po::value<std::string>(), "output name of synthesized mesh")
+        ("out", po::value<std::string>(), "output name of synthesized mesh (.off)")
     ;
 
     // Declare the optional options.
@@ -87,39 +87,40 @@ int main(int argc, char *argv[]) {
     po::store(po::parse_config_file(config_File, config), vm);
     po::notify(vm);
 
+    // Display help and exit
     if (vm.count("help")) {
         std::cout << visible << "\n";
         return 1;
     }
 
-    if (vm.count("scan")) {
-     //<< vm["data-path"].as<int>() << ".\n";
-    } else {
+    // Enforce inclusion of required parameters
+    if (!vm.count("scan")) {
         std::cout << "Scan file not set.\n";
         return 1;
     }
-
-    if (vm.count("corr")) {
-     //<< vm["data-path"].as<int>() << ".\n";
-    } else {
+    if (!vm.count("corr")) {
         std::cout << "Corr file not set.\n";
         return 1;
     }
-
-    if (vm.count("out")) {
-     //<< vm["data-path"].as<int>() << ".\n";
-    } else {
+    if (!vm.count("out")) {
         std::cout << "Output file not set.\n";
         return 1;
     }
 
+    // Build model, scan and solver objects
     FaceModel face_model(vm["model-path"].as<std::string>());
-    RGBDScan face_scan(vm["scan"].as<std::string>(), vm["corr"].as<std::string>());
-    FaceSolver face_solver(vm["geo-reg"].as<double>(), vm["huber"].as<double>(),
-            vm["knn-dist-thresh"].as<double>(), vm["num-iters"].as<int>(),
-            vm["frac-used-vertices"].as<double>(),
-            vm["ignore-borders"].as<bool>());
 
+    RGBDScan face_scan(vm["scan"].as<std::string>(),
+                       vm["corr"].as<std::string>());
+
+    FaceSolver face_solver(vm["geo-reg"].as<double>(),
+                           vm["huber"].as<double>(),
+                           vm["knn-dist-thresh"].as<double>(),
+                           vm["num-iters"].as<int>(),
+                           vm["frac-used-vertices"].as<double>(),
+                           vm["ignore-borders"].as<bool>());
+
+    // Execute solver with tests
     run(face_solver, face_scan, face_model, vm["out"].as<std::string>());
 
     return 0;
