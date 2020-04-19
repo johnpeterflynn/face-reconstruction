@@ -10,7 +10,8 @@
 #include "facemodel.h"
 #include "rgbdscan.h"
 #include "facesolver.h"
-#include"config.h"
+#include "config.h"
+#include "utils.h"
 
 namespace po = boost::program_options;
 
@@ -41,6 +42,10 @@ void run(FaceSolver &face_solver, RGBDScan &face_scan, FaceModel &face_model,
     std::cout << "Face solver took: "
              << duration.count() / 1000000.0 << " seconds" << std::endl;
 
+    // Compute sum of vertex displacements between this model and the ideal
+    FaceMesh synth_mesh = face_model.synthesizeModel(alpha, delta, T_xy);
+    double sum_diff = compareToIdeal(synth_mesh, "synth_ideal.off");
+    std::cout << "Difference: " << sum_diff << "\n";
 }
 
 int main(int argc, char *argv[]) {
