@@ -6,9 +6,22 @@
 
 This is a reproduction of part of the work of Dr. Justus Thies in his paper _Real-time Expression Transfer for Facial Reenactment_ [1] to reconstruct high resolution facial expression and geometry (gray) form a Kinect face scan (red).
 
+### Algorithm
 
+See `src/facesolver.cpp` for main optimization loop.
 
-We fit a face model parameterized by face geometry, expression and pose to an RGB-D scan.
+1. Minimize the sum-squared-distance error for sparce correspondence points between face model and scan.
+2. For number of iterations `num_iters`:
+   1. Randomly sample a subset (`frac-used-vertices`) of model vertices.
+   2. Find new correspondence points by computing the nearest scan vertex (1-KNN) to each model vertex.
+   3. Filter scan vertices at border (if `ignore-borders = true`) and model vertices not in `model/mesh/averageMesh_blackface.off`
+   4. Minimize the sum-squared-distance error for all correspondence points that are below a distance threshold `knn-dist-thresh`.
+
+### Optimization
+
+Significant performance improvements were made possible by only optimizing over the first 40 PCA components for geometry and 30 PCA components for expression (see `include/config.h`).
+
+We achieved further performance improvements by randomly sampling subset of face scan vertices (`frac-used-vertices`). Below are the results of using various sampling percentages and their runtimes on a commodity Intel-i5 CPU. By qualitative inspection, even using 20% of available vertices achieves nearly the same reconstruction as when using 100% of available vertices in just a third of the time.
 
 ![](/content/frac-vertices-time.png)
 
